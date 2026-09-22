@@ -5,7 +5,6 @@ import info.isaksson.erland.survey.surveyapi.ApiException;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
-import java.util.List;
 import java.util.UUID;
 
 @ApplicationScoped
@@ -13,17 +12,6 @@ public class AccountAccessService {
     @Inject SurveyAccountAdminRepository memberships;
     @Inject SurveyRepository surveys;
     @Inject SurveyRunRepository runs;
-
-    public UUID requireSingleAccount(UUID userId) {
-        List<SurveyAccountAdmin> rows = memberships.find("id.adminUserId = ?1 order by createdAt, id.surveyAccountId", userId).list();
-        if (rows.isEmpty()) {
-            throw new ApiException(403, "NO_SURVEY_ACCOUNT", "Administratören är inte kopplad till något enkätkonto.");
-        }
-        if (rows.size() > 1) {
-            throw new ApiException(409, "ACCOUNT_SELECTION_REQUIRED", "Välj vilket enkätkonto du vill arbeta i.");
-        }
-        return rows.getFirst().id.surveyAccountId;
-    }
 
     public void requireMembership(UUID userId, UUID accountId) {
         if (memberships.findByIdOptional(new SurveyAccountAdminId(accountId, userId)).isEmpty()) {
