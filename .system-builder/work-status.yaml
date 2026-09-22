@@ -1,13 +1,13 @@
 project: survey-service
 mode: CREATE
-current_step: STEP-36
-current_step_name: Release candidate
-status: implemented_ci_verified
-completed_through: STEP-36
-release_candidate: 0.1.0-rc.1
+current_step: STEP-37
+current_step_name: Multi-user architecture and migration plan
+status: implemented_static_verified
+completed_through: STEP-37
+release_baseline: 1.0.0
 verification_policy:
   local_static: required
-  runtime: verified_in_ci
+  runtime: required_for_code_steps
 history_summary:
   - STEP-01..03: bootstrap, CI, PostgreSQL and Flyway
   - STEP-04..08: admin authentication, survey domain/API and editor
@@ -17,20 +17,28 @@ history_summary:
   - STEP-26..30: survey/result import-export and complete archival package
   - STEP-31..33: UX, accessibility and security hardening
   - STEP-34: Playwright end-to-end coverage and CI E2E job
-  - STEP-35: production deployment profile
-step_36:
-  changes:
-    - backend and frontend version set to 0.1.0-rc.1
-    - CHANGELOG.md added
-    - release notes added for 0.1.0-rc.1
-    - RC checklist added with post-merge smoke tests and stop criteria
-    - known limitations documented
-    - README status updated for the release candidate
+  - STEP-35: production and Coolify deployment profiles
+  - STEP-36: release candidate / first production release
+  - STEP-37: multi-user account architecture and migration plan
+step_37:
+  decisions:
+    - survey_account owns surveys and downstream business data
+    - admin_user is a global login identity
+    - survey_account_admin links administrators to one or more survey accounts
+    - only system/bootstrap admin may create new survey accounts
+    - new survey account creation must atomically include at least one survey administrator
+    - survey administrators may manage administrators only within accounts where they are members
+    - an account may never be left without an administrator
+    - selected account is explicit in routes/API requests rather than global server-side session state
+    - tenant isolation is enforced server-side for survey, run, result and export access
+    - existing data migrates to an initial account before owner_id is removed
+  artifacts:
+    - docs/multi-user-architecture.md
+    - docs/development-plan.md updated with STEP-37..44
   verification:
-    - previous CI run 19 passed backend, frontend and end-to-end tests
-    - final RC commit verified by CI run 23: backend, frontend and end-to-end all passed
-  notes:
-    - do not create the v0.1.0-rc.1 tag until the RC commit is merged and CI on main is green
-    - publish the GitHub release as a prerelease
-next_step: RELEASE
-next_step_name: Merge, smoke test and tag v0.1.0-rc.1
+    - architecture separates identity, membership and business-data ownership
+    - migration path preserves existing surveys and results
+    - systemadmin boundary is explicit
+    - next implementation step is scoped to domain and Flyway migration
+next_step: STEP-38
+next_step_name: Survey account domain and data migration
