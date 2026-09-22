@@ -65,12 +65,12 @@ class SurveyImportApiTest {
         String accountId = accountId(cookie);
         given().cookie("survey_admin_session", cookie).contentType(ContentType.JSON)
                 .body("{\"format\":\"other\",\"version\":1,\"survey\":{\"title\":\"X\",\"questions\":[]}}")
-                .post("/api/admin/surveys/import")
+                .post("/api/admin/accounts/{accountId}/surveys/import", accountId)
                 .then().statusCode(400).body("code", equalTo("UNSUPPORTED_IMPORT_FORMAT"));
 
         given().cookie("survey_admin_session", cookie).contentType(ContentType.JSON)
                 .body("{\"format\":\"survey-definition\",\"version\":99,\"survey\":{\"title\":\"X\",\"questions\":[]}}")
-                .post("/api/admin/surveys/import")
+                .post("/api/admin/accounts/{accountId}/surveys/import", accountId)
                 .then().statusCode(400).body("code", equalTo("UNSUPPORTED_IMPORT_VERSION"));
     }
 
@@ -88,10 +88,10 @@ class SurveyImportApiTest {
                    "options":[{"value":"a","label":"Bara ett"}]}
                 ]}}
                 """)
-                .post("/api/admin/surveys/import")
+                .post("/api/admin/accounts/{accountId}/surveys/import", accountId)
                 .then().statusCode(400).body("code", equalTo("INVALID_QUESTION"));
 
-        int after = given().cookie("survey_admin_session", cookie).get("/api/admin/surveys")
+        int after = given().cookie("survey_admin_session", cookie).get("/api/admin/accounts/{accountId}/surveys", accountId)
                 .then().statusCode(200).extract().jsonPath().getList("$").size();
         org.junit.jupiter.api.Assertions.assertEquals(before, after);
     }
