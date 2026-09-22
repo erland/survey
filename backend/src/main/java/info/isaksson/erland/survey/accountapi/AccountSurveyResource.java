@@ -72,7 +72,11 @@ public class AccountSurveyResource {
     @GET @Path("/{surveyId}/export")
     public Response export(@PathParam("accountId") UUID accountId, @PathParam("surveyId") UUID surveyId) {
         var document = exports.exportDefinition(principal().userId(), accountId, surveyId);
-        return Response.ok(document).header(HttpHeaders.CACHE_CONTROL, "no-store").build();
+        String filename = "survey-definition-" + surveyId + ".json";
+        return Response.ok(document)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .build();
     }
 
     @GET @Path("/{surveyId}/runs")
