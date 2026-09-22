@@ -2,8 +2,8 @@ project: survey-service
 mode: CREATE
 current_step: STEP-41
 current_step_name: Account admin management
-status: implemented_pending_ci
-completed_through: STEP-40
+status: implemented_ci_verified
+completed_through: STEP-41
 release_baseline: 1.0.0
 verification_policy:
   local_static: required
@@ -95,6 +95,6 @@ step_41:
     - existing-user multi-account membership test added
     - last-admin protection test added
     - cross-account admin-management denial test added
-    - CI pending
+    - CI run 67 passed backend, frontend and end-to-end
 next_step: STEP-42
 next_step_name: Account selection and admin UX
