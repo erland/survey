@@ -15,14 +15,16 @@ import java.util.Map;
 @Priority(Priorities.AUTHENTICATION)
 public class AdminAuthFilter implements ContainerRequestFilter {
     public static final String COOKIE_NAME = "survey_admin_session";
-    public static final String PRINCIPAL_PROPERTY = "survey.admin.principal";
 
     @Inject
     AuthService authService;
 
+    @Inject
+    AdminRequestContext adminRequestContext;
+
     @Override
     public void filter(ContainerRequestContext requestContext) {
-        String path = requestContext.getUriInfo().getPath();
+        String path = normalizePath(requestContext.getUriInfo().getPath());
         if (!path.equals("api/admin") && !path.startsWith("api/admin/")) {
             return;
         }
@@ -40,5 +42,9 @@ public class AdminAuthFilter implements ContainerRequestFilter {
             return;
         }
         adminRequestContext.setPrincipal(principal.get());
+    }
+
+    private String normalizePath(String path) {
+        return path != null && path.startsWith("/") ? path.substring(1) : path;
     }
 }
