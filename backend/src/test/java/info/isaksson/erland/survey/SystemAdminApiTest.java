@@ -19,30 +19,41 @@ class SystemAdminApiTest {
     @Inject AgroalDataSource dataSource;
 
     @Test
-    void systemAdminCreatesAccountAndFirstAdministratorAtomically() throws Exception {
+    void systemAdminCreatesAccountAndFirstAdministratorWithSetupLink() throws Exception {
         String systemCookie = login("test-admin", "test-password-123");
         String username = "account-admin-" + UUID.randomUUID() + "@example.test";
         String accountName = "Account " + UUID.randomUUID();
 
-        String accountId = given()
+        var created = given()
                 .cookie("survey_admin_session", systemCookie)
                 .contentType(ContentType.JSON)
                 .body("""
                         {
                           "accountName":"%s",
-                          "adminUsername":"%s",
-                          "adminPassword":"first-admin-password-123"
+                          "adminUsername":"%s"
                         }
                         """.formatted(accountName, username))
                 .post("/api/system/accounts")
                 .then().statusCode(201)
                 .body("name", equalTo(accountName))
                 .body("adminUsername", equalTo(username))
-                .extract().path("id");
+                .extract();
 
+        String accountId = created.path("id");
+        String setupPath = created.path("initialPasswordPath");
+        assertNotNull(setupPath);
+        assertTrue(setupPath.startsWith("/admin/set-password?token="));
         assertTrue(accountAndMembershipExist(UUID.fromString(accountId), username));
 
-        String adminCookie = login(username, "first-admin-password-123");
+        given()
+                .contentType(ContentType.JSON)
+                .body("{\"username\":\"" + username + "\",\"password\":\"12345678\"}")
+                .post("/api/auth/login")
+                .then().statusCode(401);
+
+        consumeSetupLink(setupPath, "12345678");
+
+        String adminCookie = login(username, "12345678");
         given()
                 .cookie("survey_admin_session", adminCookie)
                 .get("/api/admin/accounts/" + accountId + "/surveys")
@@ -50,26 +61,34 @@ class SystemAdminApiTest {
     }
 
     @Test
-    void newAdministratorAcceptsEightCharacterPassword() throws Exception {
+    void setupLinkAcceptsEightCharacterPasswordAndIsSingleUse() {
         String systemCookie = login("test-admin", "test-password-123");
         String email = "eight-" + UUID.randomUUID() + "@example.test";
         String accountName = "Eight chars " + UUID.randomUUID();
 
-        given()
+        String setupPath = given()
                 .cookie("survey_admin_session", systemCookie)
                 .contentType(ContentType.JSON)
                 .body("""
                         {
                           "accountName":"%s",
-                          "adminUsername":"%s",
-                          "adminPassword":"12345678"
+                          "adminUsername":"%s"
                         }
                         """.formatted(accountName, email))
                 .post("/api/system/accounts")
                 .then().statusCode(201)
-                .body("adminUsername", equalTo(email));
+                .body("adminUsername", equalTo(email))
+                .extract().path("initialPasswordPath");
 
+        consumeSetupLink(setupPath, "12345678");
         login(email, "12345678");
+
+        given()
+                .contentType(ContentType.JSON)
+                .body("{\"token\":\"" + tokenFrom(setupPath) + "\",\"password\":\"abcdefgh\"}")
+                .post("/api/auth/password-token/consume")
+                .then().statusCode(400)
+                .body("code", equalTo("INVALID_PASSWORD_TOKEN"));
     }
 
     @Test
@@ -121,9 +140,9 @@ class SystemAdminApiTest {
     }
 
     @Test
-    void failedAccountCreationRollsBackNewAdministrator() throws Exception {
+    void invalidEmailAccountCreationRollsBackNewAdministrator() throws Exception {
         String systemCookie = login("test-admin", "test-password-123");
-        String username = "rollback-admin-" + UUID.randomUUID() + "@example.test";
+        String username = "not-an-email";
         String accountName = "Rollback " + UUID.randomUUID();
 
         given()
@@ -132,16 +151,27 @@ class SystemAdminApiTest {
                 .body("""
                         {
                           "accountName":"%s",
-                          "adminUsername":"%s",
-                          "adminPassword":"short"
+                          "adminUsername":"%s"
                         }
                         """.formatted(accountName, username))
                 .post("/api/system/accounts")
                 .then().statusCode(400)
-                .body("code", equalTo("ADMIN_PASSWORD_REQUIRED"));
+                .body("code", equalTo("INVALID_ADMIN_EMAIL"));
 
         assertFalse(adminExists(username));
         assertFalse(accountExists(accountName));
+    }
+
+    private void consumeSetupLink(String setupPath, String password) {
+        given()
+                .contentType(ContentType.JSON)
+                .body("{\"token\":\"" + tokenFrom(setupPath) + "\",\"password\":\"" + password + "\"}")
+                .post("/api/auth/password-token/consume")
+                .then().statusCode(204);
+    }
+
+    private String tokenFrom(String setupPath) {
+        return setupPath.substring(setupPath.indexOf("token=") + "token=".length());
     }
 
     private String login(String username, String password) {
