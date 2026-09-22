@@ -1,8 +1,8 @@
 project: survey-service
 mode: CREATE
-current_step: STEP-38
-current_step_name: Survey account domain and data migration
-status: implemented_ci_verified
+current_step: STEP-39
+current_step_name: Account-scoped authorization
+status: implemented_pending_ci
 completed_through: STEP-38
 release_baseline: 1.0.0
 verification_policy:
@@ -39,5 +39,22 @@ step_38:
     - survey account persistence tests added
     - bootstrap system-admin membership test added
     - CI run 39 passed backend, frontend and end-to-end
-next_step: STEP-39
-next_step_name: Account-scoped authorization
+step_39:
+  changes:
+    - central AccountAccessService enforces survey-account membership
+    - legacy admin APIs resolve exactly one account and reject ambiguous multi-account sessions
+    - account-scoped survey API added under /api/admin/accounts/{accountId}/surveys
+    - account-scoped run/result/export/presentation/live APIs added under /api/admin/accounts/{accountId}/runs
+    - survey CRUD authorization moved from owner_id to survey_account membership
+    - run creation/lifecycle/read authorization moved to survey_account membership
+    - result and export authorization moved to survey_account membership
+    - presentation-token administration moved to survey_account membership
+    - cross-account integration test added with two independent survey accounts
+  compatibility:
+    - existing /api/admin routes remain functional for users with exactly one account
+    - users with multiple accounts receive ACCOUNT_SELECTION_REQUIRED on legacy routes
+    - participant/public APIs remain unchanged
+  verification:
+    - CI pending
+next_step: STEP-40
+next_step_name: System admin API
