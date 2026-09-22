@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { accountApi, ApiError, authApi, emptyQuestion, participantApi, ParticipantSurveyView, presentationApi, publicRunApi, QuestionInput, QuestionResult, QuestionType, RunLiveSummary, runApi, SurveyAccountMembership, SurveyInput, SurveyRunView, SurveySummary, SurveyView, surveyApi, systemApi } from './api/surveys'
 
-type Screen = { kind: 'list' } | { kind: 'edit'; id: string | null } | { kind: 'admins' } | { kind: 'system' } | { kind: 'password' }
+type Screen = { kind: 'list' } | { kind: 'edit'; id: string | null } | { kind: 'admins' } | { kind: 'system' } | { kind: 'password'; returnTo: 'list' | 'system' }
 
 const typeLabels: Record<QuestionType, string> = {
   TEXT: 'Fritext', YES_NO: 'Ja / nej', SINGLE_CHOICE: 'Vallista', MULTIPLE_CHOICE: 'Kryssrutor', SCALE: 'Skala',
@@ -880,23 +880,23 @@ export function App() {
   if (screen.kind==='password') {
     return <><a className="skip-link" href="#main-content">Hoppa till huvudinnehåll</a>
       <header className="topbar"><div><strong>Survey Service</strong><span>Konto</span></div><div><span className="username">{auth.username}</span><button onClick={()=>void authApi.logout().then(()=>setAuth({loading:false,username:null,systemAdmin:false}))}>Logga ut</button></div></header>
-      <main id="main-content" className="app-shell" tabIndex={-1}><ChangePassword onDone={()=>setScreen(accountId?{kind:'list'}:{kind:'list'})}/></main></>
+      <main id="main-content" className="app-shell" tabIndex={-1}><ChangePassword onDone={()=>setScreen(screen.returnTo==='system'?{kind:'system'}:{kind:'list'})}/></main></>
   }
 
   if (!accountId && screen.kind !== 'system') {
-    return <AccountChooser accounts={accounts} onChoose={id=>selectAccount(id)} systemAdmin={auth.systemAdmin} onSystem={()=>setScreen({kind:'system'})} onPassword={()=>setScreen({kind:'password'})} />
+    return <AccountChooser accounts={accounts} onChoose={id=>selectAccount(id)} systemAdmin={auth.systemAdmin} onSystem={()=>setScreen({kind:'system'})} onPassword={()=>setScreen({kind:'password',returnTo:'list'})} />
   }
 
   const currentAccount=accountId ? accounts.find(a=>a.id===accountId) ?? null : null
 
   if (screen.kind==='system') {
     return <><a className="skip-link" href="#main-content">Hoppa till huvudinnehåll</a>
-      <header className="topbar"><div><strong>Survey Service</strong><span>Systemadmin</span></div><div><button onClick={()=>setScreen({kind:'password'})}>Ändra lösenord</button><span className="username">{auth.username}</span><button onClick={()=>void authApi.logout().then(()=>setAuth({loading:false,username:null,systemAdmin:false}))}>Logga ut</button></div></header>
+      <header className="topbar"><div><strong>Survey Service</strong><span>Systemadmin</span></div><div><button onClick={()=>setScreen({kind:'password',returnTo:'system'})}>Ändra lösenord</button><span className="username">{auth.username}</span><button onClick={()=>void authApi.logout().then(()=>setAuth({loading:false,username:null,systemAdmin:false}))}>Logga ut</button></div></header>
       <main id="main-content" className="app-shell" tabIndex={-1}><SystemAccountPanel onDone={()=>accountId?setScreen({kind:'list'}):setScreen({kind:'list'})} onChanged={loadAccounts}/></main></>
   }
 
   if (!currentAccount) {
-    return <AccountChooser accounts={accounts} onChoose={id=>selectAccount(id)} systemAdmin={auth.systemAdmin} onSystem={()=>setScreen({kind:'system'})} onPassword={()=>setScreen({kind:'password'})} />
+    return <AccountChooser accounts={accounts} onChoose={id=>selectAccount(id)} systemAdmin={auth.systemAdmin} onSystem={()=>setScreen({kind:'system'})} onPassword={()=>setScreen({kind:'password',returnTo:'list'})} />
   }
 
   return <><a className="skip-link" href="#main-content">Hoppa till huvudinnehåll</a>
@@ -906,7 +906,7 @@ export function App() {
         {accounts.length>1&&<button onClick={clearAccount}>Byt konto</button>}
         <button onClick={()=>setScreen({kind:'admins'})}>Administratörer</button>
         {auth.systemAdmin&&<button onClick={()=>setScreen({kind:'system'})}>Systemadministration</button>}
-        <button onClick={()=>setScreen({kind:'password'})}>Ändra lösenord</button>
+        <button onClick={()=>setScreen({kind:'password',returnTo:'list'})}>Ändra lösenord</button>
         <span className="username">{auth.username}</span>
         <button onClick={()=>void authApi.logout().then(()=>setAuth({loading:false,username:null,systemAdmin:false}))}>Logga ut</button>
       </div>
