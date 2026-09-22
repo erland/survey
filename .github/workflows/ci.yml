@@ -1,0 +1,185 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: survey
+          POSTGRES_USER: survey
+          POSTGRES_PASSWORD: survey
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U survey -d survey"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DB_URL: jdbc:postgresql://localhost:5432/survey
+      DB_USERNAME: survey
+      DB_PASSWORD: survey
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Verify backend
+        run: mvn --batch-mode --no-transfer-progress verify
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Test frontend
+        run: npm test
+
+      - name: Build frontend
+        run: npm run build
+
+
+  e2e:
+    name: End-to-end
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: survey
+          POSTGRES_USER: survey
+          POSTGRES_PASSWORD: survey
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U survey -d survey"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DB_URL: jdbc:postgresql://localhost:5432/survey
+      DB_USERNAME: survey
+      DB_PASSWORD: survey
+      ADMIN_BOOTSTRAP_USER: admin
+      ADMIN_BOOTSTRAP_PASSWORD: change-me
+      ADMIN_COOKIE_SECURE: 'false'
+      E2E_BASE_URL: http://127.0.0.1:5173
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Build backend
+        working-directory: backend
+        run: mvn --batch-mode --no-transfer-progress -DskipTests package
+
+      - name: Install frontend and Playwright dependencies
+        working-directory: frontend
+        run: |
+          npm install --no-audit --no-fund
+          npx playwright install --with-deps chromium
+
+      - name: Start backend
+        working-directory: backend
+        run: |
+          nohup java -jar target/quarkus-app/quarkus-run.jar > /tmp/survey-backend.log 2>&1 &
+          echo $! > /tmp/survey-backend.pid
+
+      - name: Wait for backend
+        run: |
+          for i in {1..60}; do
+            if curl --fail --silent http://127.0.0.1:8080/q/health/ready >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          cat /tmp/survey-backend.log
+          exit 1
+
+      - name: Start frontend
+        working-directory: frontend
+        run: |
+          nohup npm run dev -- --host 127.0.0.1 --port 5173 > /tmp/survey-frontend.log 2>&1 &
+          echo $! > /tmp/survey-frontend.pid
+
+      - name: Wait for frontend
+        run: |
+          for i in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:5173/ >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          cat /tmp/survey-frontend.log
+          exit 1
+
+      - name: Run Playwright E2E
+        working-directory: frontend
+        run: npm run test:e2e
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Show application logs on failure
+        if: failure()
+        run: |
+          echo '--- backend ---'
+          cat /tmp/survey-backend.log || true
+          echo '--- frontend ---'
+          cat /tmp/survey-frontend.log || true
