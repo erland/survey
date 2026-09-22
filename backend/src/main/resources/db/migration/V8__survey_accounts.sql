@@ -42,6 +42,27 @@ BEGIN
         created_by_admin_user_id = owner_id;
 END $$;
 
+CREATE OR REPLACE FUNCTION assign_default_survey_account()
+RETURNS TRIGGER AS $
+BEGIN
+    IF NEW.survey_account_id IS NULL THEN
+        SELECT m.survey_account_id
+        INTO NEW.survey_account_id
+        FROM survey_account_admin m
+        WHERE m.admin_user_id = NEW.owner_id
+        ORDER BY m.created_at, m.survey_account_id
+        LIMIT 1;
+    END IF;
+    RETURN NEW;
+END;
+$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_assign_default_survey_account
+BEFORE INSERT ON survey
+FOR EACH ROW
+WHEN (NEW.survey_account_id IS NULL)
+EXECUTE FUNCTION assign_default_survey_account();
+
 ALTER TABLE survey
     ALTER COLUMN survey_account_id SET NOT NULL;
 
