@@ -1,5 +1,6 @@
 package info.isaksson.erland.survey.presentation;
 
+import info.isaksson.erland.survey.auth.AccountAccessService;
 import info.isaksson.erland.survey.domain.PresentationToken;
 import info.isaksson.erland.survey.domain.PresentationTokenRepository;
 import info.isaksson.erland.survey.domain.SurveyRun;
@@ -26,20 +27,26 @@ public class PresentationTokenService {
     private static final SecureRandom RANDOM = new SecureRandom();
 
     @Inject PresentationTokenRepository tokens;
+    @Inject AccountAccessService accountAccess;
     @Inject SurveyRunRepository runs;
 
     @ConfigProperty(name = "app.presentation.token-hours", defaultValue = "12")
     long tokenHours;
 
     @Transactional
-    public CreatedPresentationToken create(UUID ownerId, UUID runId) {
-        SurveyRun run = ownedRun(ownerId, runId);
+    public CreatedPresentationToken create(UUID userId, UUID runId) {
+        return create(userId, accountAccess.requireSingleAccount(userId), runId);
+    }
+
+    @Transactional
+    public CreatedPresentationToken create(UUID userId, UUID accountId, UUID runId) {
+        SurveyRun run = accountAccess.requireRun(userId, accountId, runId);
         String rawToken = newToken();
         Instant now = Instant.now();
         PresentationToken token = new PresentationToken();
         token.id = UUID.randomUUID();
         token.run = run;
-        token.createdBy = ownerId;
+        token.createdBy = userId;
         token.tokenHash = sha256(rawToken);
         token.createdAt = now;
         token.expiresAt = now.plus(Duration.ofHours(tokenHours));
@@ -48,8 +55,14 @@ public class PresentationTokenService {
     }
 
     @Transactional
-    public void revoke(UUID ownerId, UUID runId, UUID tokenId) {
-        PresentationToken token = tokens.find("id = ?1 and run.id = ?2 and createdBy = ?3", tokenId, runId, ownerId)
+    public void revoke(UUID userId, UUID runId, UUID tokenId) {
+        revoke(userId, accountAccess.requireSingleAccount(userId), runId, tokenId);
+    }
+
+    @Transactional
+    public void revoke(UUID userId, UUID accountId, UUID runId, UUID tokenId) {
+        accountAccess.requireRun(userId, accountId, runId);
+        PresentationToken token = tokens.find("id = ?1 and run.id = ?2", tokenId, runId)
                 .firstResultOptional()
                 .orElseThrow(() -> new ApiException(404, "PRESENTATION_TOKEN_NOT_FOUND", "Presentationstoken kunde inte hittas."));
         if (token.revokedAt == null) token.revokedAt = Instant.now();
@@ -65,12 +78,6 @@ public class PresentationTokenService {
                 .firstResultOptional()
                 .orElseThrow(this::invalidToken);
         return token.run.id;
-    }
-
-    private SurveyRun ownedRun(UUID ownerId, UUID runId) {
-        return runs.find("id = ?1 and createdBy = ?2", runId, ownerId)
-                .firstResultOptional()
-                .orElseThrow(() -> new ApiException(404, "RUN_NOT_FOUND", "Enkätgenomförandet kunde inte hittas."));
     }
 
     private ApiException invalidToken() {
