@@ -12,8 +12,17 @@ import static info.isaksson.erland.survey.exporting.RunResultExportDtos.*;
 public class RunResultCsvExportService {
     @Inject RunResultExportService jsonExportService;
 
-    public byte[] export(UUID ownerId, UUID runId) {
-        ResultExportDocument document = jsonExportService.export(ownerId, runId);
+    public byte[] export(UUID userId, UUID runId) {
+        ResultExportDocument document = jsonExportService.export(userId, runId);
+        return render(document);
+    }
+
+    public byte[] export(UUID userId, UUID accountId, UUID runId) {
+        ResultExportDocument document = jsonExportService.export(userId, accountId, runId);
+        return render(document);
+    }
+
+    private byte[] render(ResultExportDocument document) {
         StringBuilder csv = new StringBuilder();
         csv.append("participant_id,status,started_at,submitted_at");
         for (QuestionExport question : document.questions()) {
