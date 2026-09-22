@@ -68,6 +68,74 @@ class SystemAdminUserLifecycleTest {
     }
 
     @Test
+    void systemAdminCanCreateSingleUsePasswordResetLinkForActiveRegularAdmin() throws Exception {
+        String systemCookie = login("test-admin", "test-password-123");
+        String username = "reset-" + UUID.randomUUID() + "@example.test";
+        UUID userId = createAdmin(username, false, true);
+        String oldCookie = login(username, "test-password-123");
+
+        String resetPath = given()
+                .cookie("survey_admin_session", systemCookie)
+                .post("/api/system/admins/" + userId + "/password-reset")
+                .then().statusCode(200)
+                .extract().path("path");
+
+        assertNotNull(resetPath);
+        assertTrue(resetPath.startsWith("/admin/set-password?token="));
+
+        given()
+                .cookie("survey_admin_session", oldCookie)
+                .get("/api/auth/me")
+                .then().statusCode(200);
+
+        String token = resetPath.substring(resetPath.indexOf("token=") + "token=".length());
+        given()
+                .contentType(ContentType.JSON)
+                .body("{\"token\":\"" + token + "\",\"password\":\"newpass8\"}")
+                .post("/api/auth/password-token/consume")
+                .then().statusCode(204);
+
+        given()
+                .cookie("survey_admin_session", oldCookie)
+                .get("/api/auth/me")
+                .then().statusCode(401);
+
+        given()
+                .contentType(ContentType.JSON)
+                .body("{\"username\":\"" + username + "\",\"password\":\"test-password-123\"}")
+                .post("/api/auth/login")
+                .then().statusCode(401);
+
+        login(username, "newpass8");
+
+        given()
+                .contentType(ContentType.JSON)
+                .body("{\"token\":\"" + token + "\",\"password\":\"another8\"}")
+                .post("/api/auth/password-token/consume")
+                .then().statusCode(400)
+                .body("code", equalTo("INVALID_PASSWORD_TOKEN"));
+    }
+
+    @Test
+    void passwordResetLinkRequiresActiveRegularAdministrator() throws Exception {
+        String systemCookie = login("test-admin", "test-password-123");
+        UUID inactiveUserId = createAdmin("inactive-reset-" + UUID.randomUUID() + "@example.test", false, false);
+        UUID systemUserId = userId("test-admin");
+
+        given()
+                .cookie("survey_admin_session", systemCookie)
+                .post("/api/system/admins/" + inactiveUserId + "/password-reset")
+                .then().statusCode(409)
+                .body("code", equalTo("ADMIN_INACTIVE"));
+
+        given()
+                .cookie("survey_admin_session", systemCookie)
+                .post("/api/system/admins/" + systemUserId + "/password-reset")
+                .then().statusCode(409)
+                .body("code", equalTo("SYSTEM_ADMIN_PROTECTED"));
+    }
+
+    @Test
     void administratorWithAccountMembershipCannotBeDeleted() throws Exception {
         String systemCookie = login("test-admin", "test-password-123");
         String username = "member-" + UUID.randomUUID();
