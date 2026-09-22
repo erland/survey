@@ -1,9 +1,9 @@
 project: survey-service
 mode: CHANGE
-current_step: STEP-47
-current_step_name: Admin authentication foundation
+current_step: STEP-48
+current_step_name: Initial password links for new administrators
 status: implemented_ci_verified
-completed_through: STEP-46
+completed_through: STEP-48
 release_baseline: 1.0.0
 verification_policy:
   local_static: required
@@ -178,8 +178,8 @@ release_readiness:
   warnings:
     - release version and tag are intentionally deferred to the release step
     - production smoke test is pending after merge/deployment
-next_step: STEP-48
-next_step_name: Create new administrators with initial-password links
+next_step: STEP-49
+next_step_name: Create password-reset links for existing administrators
 
 step_46:
   changes:
@@ -215,3 +215,27 @@ step_47:
     - policy coverage checks eight-character passwords and email requirement
     - token service coverage checks hash-only persistence and revocation of older tokens
     - CI run 128 passed backend, frontend and end-to-end
+
+step_48:
+  changes:
+    - newly created regular administrators are created without a preassigned password
+    - system-account and account-admin creation return a one-time initial-password path and expiry for new users
+    - the administration UI shows the initial-password URL and provides a copy-link action
+    - /admin/set-password lets the invited administrator choose their first password
+    - POST /api/auth/password-token/consume validates and consumes the one-time token
+    - successful token use stores the password hash, marks the token used and revokes existing sessions
+    - existing administrators added to another account do not receive a new initial-password token
+    - system-account creation no longer refreshes unrelated parent account membership state, keeping the invite link visible
+  invariants:
+    - initial-password tokens expire and can be used only once
+    - clear tokens are returned only to the creating client and are never stored in the database
+    - regular administrator passwords require at least 8 characters
+    - bootstrap/system administrator remains configuration-driven and exempt from the email-only creation rule
+    - legacy non-email administrators remain linkable to additional accounts
+  verification:
+    - backend integration tests cover passwordless creation, setup-link consumption, eight-character password acceptance and single-use rejection
+    - account-admin integration tests cover the same initial-password flow
+    - Playwright covers creation, visible setup link, setting the password and subsequent login
+    - CI run 140 exposed an invite-link visibility defect in E2E
+    - repair keeps the setup link visible after account creation
+    - CI run 141 passed backend, frontend and end-to-end
