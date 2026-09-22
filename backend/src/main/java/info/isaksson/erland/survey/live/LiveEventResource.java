@@ -1,6 +1,6 @@
 package info.isaksson.erland.survey.live;
 
-import info.isaksson.erland.survey.auth.AdminAuthFilter;
+import info.isaksson.erland.survey.auth.AdminRequestContext;
 import info.isaksson.erland.survey.auth.AuthService.AdminPrincipal;
 import info.isaksson.erland.survey.runapi.RunSummaryService;
 import info.isaksson.erland.survey.surveyapi.ApiException;
@@ -9,8 +9,6 @@ import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.container.ContainerRequestContext;
-import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.sse.Sse;
 import jakarta.ws.rs.sse.SseEventSink;
@@ -22,7 +20,7 @@ import java.util.UUID;
 public class LiveEventResource {
     @Inject LiveEventService liveEvents;
     @Inject RunSummaryService summaryService;
-    @Context ContainerRequestContext requestContext;
+    @Inject AdminRequestContext adminRequestContext;
 
     @GET
     @Produces(MediaType.SERVER_SENT_EVENTS)
@@ -33,8 +31,8 @@ public class LiveEventResource {
     }
 
     private AdminPrincipal principal() {
-        Object value = requestContext.getProperty(AdminAuthFilter.PRINCIPAL_PROPERTY);
-        if (value instanceof AdminPrincipal principal) return principal;
+        AdminPrincipal principal = adminRequestContext.principal();
+        if (principal != null) return principal;
         throw new ApiException(401, "ADMIN_AUTH_REQUIRED", "Administratörsinloggning krävs.");
     }
 }
