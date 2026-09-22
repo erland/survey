@@ -2,8 +2,8 @@ project: survey-service
 mode: CREATE
 current_step: STEP-39
 current_step_name: Account-scoped authorization
-status: implemented_pending_ci
-completed_through: STEP-38
+status: implemented_ci_verified
+completed_through: STEP-39
 release_baseline: 1.0.0
 verification_policy:
   local_static: required
@@ -55,6 +55,6 @@ step_39:
     - users with multiple accounts receive ACCOUNT_SELECTION_REQUIRED on legacy routes
     - participant/public APIs remain unchanged
   verification:
-    - CI pending
+    - CI run 53 passed backend, frontend and end-to-end
 next_step: STEP-40
 next_step_name: System admin API
