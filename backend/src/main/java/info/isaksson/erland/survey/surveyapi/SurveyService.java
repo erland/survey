@@ -16,6 +16,7 @@ import static info.isaksson.erland.survey.surveyapi.SurveyDtos.*;
 @ApplicationScoped
 public class SurveyService {
     @Inject SurveyRepository surveyRepository;
+    @Inject SurveyAccountAdminRepository surveyAccountAdmins;
 
     public List<SurveySummary> list(UUID ownerId) {
         return surveyRepository.find("ownerId = ?1 order by updatedAt desc", ownerId).list().stream()
@@ -33,6 +34,8 @@ public class SurveyService {
         Survey survey = new Survey();
         survey.id = UUID.randomUUID();
         survey.ownerId = ownerId;
+        survey.surveyAccountId = accountIdFor(ownerId);
+        survey.createdByAdminUserId = ownerId;
         survey.createdAt = Instant.now();
         survey.updatedAt = survey.createdAt;
         apply(survey, input);
@@ -61,6 +64,8 @@ public class SurveyService {
         Survey copy = new Survey();
         copy.id = UUID.randomUUID();
         copy.ownerId = ownerId;
+        copy.surveyAccountId = source.surveyAccountId;
+        copy.createdByAdminUserId = ownerId;
         copy.title = source.title + " (kopia)";
         copy.description = source.description;
         copy.status = SurveyStatus.DRAFT;
@@ -69,6 +74,11 @@ public class SurveyService {
         copy.questions = cloneQuestions(copy, source.questions);
         surveyRepository.persist(copy);
         return toView(copy);
+    }
+
+    private UUID accountIdFor(UUID ownerId) {
+        return surveyAccountAdmins.firstAccountIdForAdmin(ownerId)
+                .orElseThrow(() -> new IllegalStateException("Admin user is not linked to a survey account"));
     }
 
     private Survey findOwned(UUID ownerId, UUID surveyId) {
