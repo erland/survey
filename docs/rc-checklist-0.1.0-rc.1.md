@@ -15,8 +15,9 @@
 ## Efter merge till main
 
 - [ ] Bekräfta att CI på main är grön.
-- [ ] Bygg produktionscontainrar.
-- [ ] Starta `compose.production.yaml` med riktiga secrets.
+- [ ] Verifiera att båda versionerade GHCR-images finns.
+- [ ] För Coolify: konfigurera `deploy/coolify/compose.yaml`, aktivera `Connect To Predefined Network` och sätt `DB_HOST` till den gemensamma PostgreSQL-resursen.
+- [ ] Starta produktionsprofilen med riktiga secrets.
 - [ ] Verifiera `/q/health/ready`.
 - [ ] Verifiera administratörsinloggning via HTTPS.
 - [ ] Skapa en enkät och starta ett workshopgenomförande.
