@@ -1,5 +1,6 @@
 package info.isaksson.erland.survey.run;
 
+import info.isaksson.erland.survey.auth.AccountAccessService;
 import info.isaksson.erland.survey.domain.QuestionOption;
 import info.isaksson.erland.survey.domain.Survey;
 import info.isaksson.erland.survey.domain.SurveyQuestion;
@@ -26,17 +27,21 @@ public class SurveyRunSnapshotService {
 
     @Inject SurveyRepository surveyRepository;
     @Inject SurveyRunRepository runRepository;
+    @Inject AccountAccessService accountAccess;
 
     @Transactional
-    public SurveyRun createDraft(UUID ownerId, UUID surveyId, String title) {
-        Survey source = surveyRepository.find("id = ?1 and ownerId = ?2", surveyId, ownerId)
-                .firstResultOptional()
-                .orElseThrow(() -> new ApiException(404, "SURVEY_NOT_FOUND", "Enkäten kunde inte hittas."));
+    public SurveyRun createDraft(UUID userId, UUID surveyId, String title) {
+        return createDraft(userId, accountAccess.requireSingleAccount(userId), surveyId, title);
+    }
+
+    @Transactional
+    public SurveyRun createDraft(UUID userId, UUID accountId, UUID surveyId, String title) {
+        Survey source = accountAccess.requireSurvey(userId, accountId, surveyId);
 
         SurveyRun run = new SurveyRun();
         run.id = UUID.randomUUID();
         run.survey = source;
-        run.createdBy = ownerId;
+        run.createdBy = userId;
         run.publicId = generateUniquePublicId();
         run.joinCode = generateUniqueJoinCode();
         run.title = normalizeTitle(title, source.title);
