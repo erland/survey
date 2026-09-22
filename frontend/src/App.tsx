@@ -108,16 +108,50 @@ function AccountAdminPanel({ accountId, onDone }: { accountId:string; onDone:()=
 
 function SystemAccountPanel({ onDone, onChanged }: { onDone:()=>void; onChanged:()=>Promise<void> }) {
   const [accounts,setAccounts]=useState<Awaited<ReturnType<typeof systemApi.accounts>>>([])
+  const [admins,setAdmins]=useState<Awaited<ReturnType<typeof systemApi.admins>>>([])
   const [name,setName]=useState('')
   const [adminUsername,setAdminUsername]=useState('')
   const [password,setPassword]=useState('')
   const [error,setError]=useState('')
   const [busy,setBusy]=useState(false)
-  async function load(){try{setAccounts(await systemApi.accounts());setError('')}catch(e){setError(e instanceof Error?e.message:'Kunde inte läsa enkätkonton.')}}
+
+  async function load(){
+    try{
+      const [accountItems,adminItems]=await Promise.all([systemApi.accounts(),systemApi.admins()])
+      setAccounts(accountItems);setAdmins(adminItems);setError('')
+    }catch(e){setError(e instanceof Error?e.message:'Kunde inte läsa systemadministrationen.')}
+  }
+
   useEffect(()=>{void load()},[])
-  async function create(e:React.FormEvent){e.preventDefault();setBusy(true);setError('');try{await systemApi.createAccount(name,adminUsername,password||undefined);setName('');setAdminUsername('');setPassword('');await Promise.all([load(),onChanged()])}catch(e){setError(e instanceof Error?e.message:'Kunde inte skapa enkätkontot.')}finally{setBusy(false)}}
+
+  async function create(e:React.FormEvent){
+    e.preventDefault();setBusy(true);setError('')
+    try{
+      await systemApi.createAccount(name,adminUsername,password||undefined)
+      setName('');setAdminUsername('');setPassword('')
+      await Promise.all([load(),onChanged()])
+    }catch(e){setError(e instanceof Error?e.message:'Kunde inte skapa enkätkontot.')}
+    finally{setBusy(false)}
+  }
+
+  async function changeAdmin(userId:string, action:'activate'|'deactivate'){
+    setError('')
+    try{
+      if(action==='activate') await systemApi.activateAdmin(userId)
+      else await systemApi.deactivateAdmin(userId)
+      await load()
+    }catch(e){setError(e instanceof Error?e.message:'Kunde inte ändra administratörskontot.')}
+  }
+
+  async function deleteAdmin(userId:string,username:string){
+    if(!confirm(`Ta bort administratörskontot "${username}" permanent?`)) return
+    setError('')
+    try{await systemApi.deleteAdmin(userId);await load()}
+    catch(e){setError(e instanceof Error?e.message:'Kunde inte ta bort administratörskontot.')}
+  }
+
   return <section>
-    <div className="page-heading"><div><button className="back" onClick={onDone}>← Tillbaka</button><p className="eyebrow">Systemadministration</p><h1>Enkätkonton</h1></div></div>
+    <div className="page-heading"><div><button className="back" onClick={onDone}>← Tillbaka</button><p className="eyebrow">Systemadministration</p><h1>Enkätkonton och användare</h1></div></div>
     {error&&<div className="error" role="alert">{error}</div>}
     <div className="card admin-management"><h2>Skapa enkätkonto</h2><form onSubmit={create} className="admin-add-form">
       <label>Kontonamn<input value={name} onChange={e=>setName(e.target.value)} required /></label>
@@ -125,10 +159,25 @@ function SystemAccountPanel({ onDone, onChanged }: { onDone:()=>void; onChanged:
       <label>Initialt lösenord <span className="muted">(krävs för ny användare)</span><input type="password" value={password} onChange={e=>setPassword(e.target.value)} autoComplete="new-password" /></label>
       <button className="primary" disabled={busy||!name.trim()||!adminUsername.trim()}>{busy?'Skapar…':'Skapa konto'}</button>
     </form></div>
+
     <div className="card"><h2>Alla enkätkonton</h2><div className="admin-list">{accounts.map(account=><div className="admin-row" key={account.id}><div><strong>{account.name}</strong><div className="muted">{account.adminCount} administratör{account.adminCount===1?'':'er'}</div></div></div>)}</div></div>
+
+    <div className="card"><h2>Administratörskonton</h2><p className="muted">Konton utan enkätkonto-medlemskap kan tas bort permanent efter att de har inaktiverats. Konton med historiska referenser kan behöva behållas.</p>
+      <div className="admin-list">{admins.map(admin=><div className="admin-row" key={admin.id}>
+        <div>
+          <strong>{admin.username}</strong>
+          <div className="muted">{admin.systemAdmin?'Systemadmin · ':''}{admin.active?'Aktiv':'Inaktiv'} · {admin.accountCount} enkätkonto{admin.accountCount===1?'':'n'}</div>
+        </div>
+        <div className="actions">
+          {!admin.systemAdmin && (admin.active
+            ? <button onClick={()=>void changeAdmin(admin.id,'deactivate')}>Inaktivera</button>
+            : <button onClick={()=>void changeAdmin(admin.id,'activate')}>Återaktivera</button>)}
+          {!admin.systemAdmin && !admin.active && admin.accountCount===0 && <button className="danger-ghost" onClick={()=>void deleteAdmin(admin.id,admin.username)}>Ta bort</button>}
+        </div>
+      </div>)}</div>
+    </div>
   </section>
 }
-
 function SurveyList({ accountId, onEdit }: { accountId:string; onEdit: (id: string | null) => void }) {
   const [items, setItems] = useState<SurveySummary[]>([])
   const [error, setError] = useState('')
