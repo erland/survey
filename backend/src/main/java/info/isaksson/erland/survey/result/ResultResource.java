@@ -1,12 +1,10 @@
 package info.isaksson.erland.survey.result;
 
-import info.isaksson.erland.survey.auth.AdminAuthFilter;
+import info.isaksson.erland.survey.auth.AdminRequestContext;
 import info.isaksson.erland.survey.auth.AuthService.AdminPrincipal;
 import info.isaksson.erland.survey.surveyapi.ApiException;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
-import jakarta.ws.rs.container.ContainerRequestContext;
-import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 
 import java.util.List;
@@ -18,7 +16,7 @@ import static info.isaksson.erland.survey.result.ResultDtos.QuestionResult;
 @Produces(MediaType.APPLICATION_JSON)
 public class ResultResource {
     @Inject ResultService service;
-    @Context ContainerRequestContext requestContext;
+    @Inject AdminRequestContext adminRequestContext;
 
     @GET
     public List<QuestionResult> all(@PathParam("runId") UUID runId) {
@@ -32,8 +30,8 @@ public class ResultResource {
     }
 
     private AdminPrincipal principal() {
-        Object value = requestContext.getProperty(AdminAuthFilter.PRINCIPAL_PROPERTY);
-        if (value instanceof AdminPrincipal principal) return principal;
+        AdminPrincipal principal = adminRequestContext.principal();
+        if (principal != null) return principal;
         throw new ApiException(401, "ADMIN_AUTH_REQUIRED", "Administratörsinloggning krävs.");
     }
 }
