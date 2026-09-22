@@ -4,7 +4,9 @@ En enkel enkättjänst primärt för liveanvändning i workshops, med anonymt de
 
 ## Status
 
-Projektet är i CREATE-läge. Den här versionen innehåller React/TypeScript/Vite-frontend, Quarkus/Java-backend, CI-grund, PostgreSQL/Flyway-baseline samt grundläggande lokal administratörsautentisering.
+Aktuell version är **0.1.0-rc.1**, den första release candidate-versionen. Huvudflödet för administration, workshopstart, anonymt deltagande, autosave/submit, live-resultat, presentation och export är implementerat och täcks av CI/E2E.
+
+Release notes finns i `docs/release-notes-0.1.0-rc.1.md` och den slutliga RC-checklistan i `docs/rc-checklist-0.1.0-rc.1.md`.
 
 ## Förutsättningar
 
@@ -111,6 +113,9 @@ Lösenord lagras som PBKDF2-SHA256-hashar. Sessions-token skickas som `HttpOnly`
 - `docs/risk-feasibility-analysis.md`
 - `docs/architecture.md`
 - `docs/development-plan.md`
+- `docs/release-notes-0.1.0-rc.1.md`
+- `docs/rc-checklist-0.1.0-rc.1.md`
+- `CHANGELOG.md`
 
 ## Nästa steg
 
