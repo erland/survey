@@ -3,7 +3,7 @@ package info.isaksson.erland.survey;
 import info.isaksson.erland.survey.domain.*;
 import info.isaksson.erland.survey.run.SurveyRunLifecycleService;
 import io.agroal.api.AgroalDataSource;
-import io.quarkus.test.TestTransaction;
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import jakarta.inject.Inject;
@@ -28,10 +28,9 @@ class PublicRunLookupApiTest {
     @Inject AgroalDataSource dataSource;
 
     @Test
-    @TestTransaction
     void openRunCanBeResolvedByPublicIdAndCaseInsensitiveJoinCode() {
         SurveyRun run = createRun("ABC234", SurveyRunStatus.DRAFT, null, null);
-        lifecycle.openNow(run.createdBy, run.id);
+        QuarkusTransaction.requiringNew().run(() -> lifecycle.openNow(run.createdBy, run.id));
 
         given()
                 .when().get("/api/public/runs/{publicId}", run.publicId)
@@ -50,7 +49,6 @@ class PublicRunLookupApiTest {
     }
 
     @Test
-    @TestTransaction
     void unknownJoinCodeReturnsNotFound() {
         given()
                 .when().get("/api/public/runs/join/{joinCode}", "ZZZ999")
@@ -60,7 +58,6 @@ class PublicRunLookupApiTest {
     }
 
     @Test
-    @TestTransaction
     void draftAndFutureScheduledRunsAreNotOpen() {
         SurveyRun draft = createRun("DRF234", SurveyRunStatus.DRAFT, null, null);
         given().when().get("/api/public/runs/{publicId}", draft.publicId)
@@ -76,39 +73,43 @@ class PublicRunLookupApiTest {
     }
 
     @Test
-    @TestTransaction
     void closedRunReturnsGone() {
         SurveyRun closed = createRun("CLS234", SurveyRunStatus.CLOSED, null, null);
-        closed.closedAt = Instant.now();
-        runs.flush();
+        QuarkusTransaction.requiringNew().run(() -> {
+            SurveyRun stored = runs.findById(closed.id);
+            stored.closedAt = Instant.now();
+        });
 
         given().when().get("/api/public/runs/{publicId}", closed.publicId)
                 .then().statusCode(410).body("code", equalTo("RUN_CLOSED"));
     }
 
     private SurveyRun createRun(String joinCode, SurveyRunStatus status, Instant opensAt, Instant closesAt) {
-        Survey survey = new Survey();
-        survey.id = UUID.randomUUID();
-        survey.ownerId = lookupTestAdminId();
-        survey.title = "Public lookup survey";
-        survey.createdAt = Instant.now();
-        survey.updatedAt = survey.createdAt;
-        surveys.persist(survey);
+        UUID ownerId = lookupTestAdminId();
+        return QuarkusTransaction.requiringNew().call(() -> {
+            Survey survey = new Survey();
+            survey.id = UUID.randomUUID();
+            survey.ownerId = ownerId;
+            survey.title = "Public lookup survey";
+            survey.createdAt = Instant.now();
+            survey.updatedAt = survey.createdAt;
+            surveys.persist(survey);
 
-        SurveyRun run = new SurveyRun();
-        run.id = UUID.randomUUID();
-        run.survey = survey;
-        run.createdBy = survey.ownerId;
-        run.publicId = UUID.randomUUID().toString().replace("-", "");
-        run.joinCode = joinCode;
-        run.title = "Public lookup run";
-        run.status = status;
-        run.opensAt = opensAt;
-        run.closesAt = closesAt;
-        run.createdAt = Instant.now();
-        runs.persist(run);
-        runs.flush();
-        return run;
+            SurveyRun run = new SurveyRun();
+            run.id = UUID.randomUUID();
+            run.survey = survey;
+            run.createdBy = survey.ownerId;
+            run.publicId = UUID.randomUUID().toString().replace("-", "");
+            run.joinCode = joinCode;
+            run.title = "Public lookup run";
+            run.status = status;
+            run.opensAt = opensAt;
+            run.closesAt = closesAt;
+            run.createdAt = Instant.now();
+            runs.persist(run);
+            runs.flush();
+            return run;
+        });
     }
 
     private UUID lookupTestAdminId() {
