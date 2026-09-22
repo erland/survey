@@ -21,11 +21,6 @@ public class RunResultExportService {
     @Inject ResponseRepository responseRepository;
 
     @Transactional
-    public ResultExportDocument export(UUID userId, UUID runId) {
-        return export(userId, accountAccess.requireSingleAccount(userId), runId);
-    }
-
-    @Transactional
     public ResultExportDocument export(UUID userId, UUID accountId, UUID runId) {
         SurveyRun run = accountAccess.requireRun(userId, accountId, runId);
 
