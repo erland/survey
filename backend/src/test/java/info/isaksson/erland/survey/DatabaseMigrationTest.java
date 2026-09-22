@@ -41,12 +41,38 @@ class DatabaseMigrationTest {
         }
     }
 
+    @Test
+    void adminPasswordTokenMigrationHasRun() throws Exception {
+        try (Connection connection = dataSource.getConnection()) {
+            assertTrue(tableExists(connection, "admin_password_token"));
+            assertTrue(columnExists(connection, "admin_password_token", "token_hash"));
+            assertTrue(columnExists(connection, "admin_password_token", "expires_at"));
+            assertTrue(columnExists(connection, "admin_password_token", "used_at"));
+            assertTrue(columnExists(connection, "admin_password_token", "revoked_at"));
+            assertTrue(columnIsNullable(connection, "admin_user", "password_hash"));
+        }
+    }
+
     private boolean tableExists(Connection connection, String table) throws Exception {
         try (PreparedStatement statement = connection.prepareStatement("SELECT to_regclass(?) IS NOT NULL")) {
             statement.setString(1, "public." + table);
             try (ResultSet rs = statement.executeQuery()) {
                 rs.next();
                 return rs.getBoolean(1);
+            }
+        }
+    }
+
+    private boolean columnIsNullable(Connection connection, String table, String column) throws Exception {
+        try (PreparedStatement statement = connection.prepareStatement("""
+                SELECT is_nullable = 'YES'
+                FROM information_schema.columns
+                WHERE table_schema = 'public' AND table_name = ? AND column_name = ?
+                """)) {
+            statement.setString(1, table);
+            statement.setString(2, column);
+            try (ResultSet rs = statement.executeQuery()) {
+                return rs.next() && rs.getBoolean(1);
             }
         }
     }
