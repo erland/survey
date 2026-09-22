@@ -59,7 +59,7 @@ class SurveyApiTest {
 
         given().cookie("survey_admin_session", cookie).delete("/api/admin/accounts/" + accountId + "/surveys/" + id)
                 .then().statusCode(204);
-        given().cookie("survey_admin_session", cookie).get("/api/admin/surveys/" + id)
+        given().cookie("survey_admin_session", cookie).get("/api/admin/accounts/" + accountId + "/surveys/" + id)
                 .then().statusCode(404).body("code", equalTo("SURVEY_NOT_FOUND"));
         given().cookie("survey_admin_session", cookie).get("/api/admin/accounts/" + accountId + "/surveys/" + copyId)
                 .then().statusCode(200);
@@ -74,7 +74,7 @@ class SurveyApiTest {
                 {"title":"Fel","questions":[{"type":"SINGLE_CHOICE","text":"Välj","required":true,
                 "options":[{"value":"a","label":"Bara ett"}]}]}
                 """)
-                .post("/api/admin/surveys")
+                .post("/api/admin/accounts/{accountId}/surveys", accountId)
                 .then().statusCode(400).body("code", equalTo("INVALID_QUESTION"));
     }
 
