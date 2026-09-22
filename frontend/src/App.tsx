@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
-import { ApiError, authApi, emptyQuestion, participantApi, ParticipantSurveyView, presentationApi, publicRunApi, QuestionInput, QuestionResult, QuestionType, RunLiveSummary, runApi, SurveyInput, SurveyRunView, SurveySummary, SurveyView, surveyApi } from './api/surveys'
+import { accountApi, ApiError, authApi, emptyQuestion, participantApi, ParticipantSurveyView, presentationApi, publicRunApi, QuestionInput, QuestionResult, QuestionType, RunLiveSummary, runApi, SurveyAccountMembership, SurveyInput, SurveyRunView, SurveySummary, SurveyView, surveyApi, systemApi } from './api/surveys'
 
-type Screen = { kind: 'list' } | { kind: 'edit'; id: string | null }
+type Screen = { kind: 'list' } | { kind: 'edit'; id: string | null } | { kind: 'admins' } | { kind: 'system' }
 
 const typeLabels: Record<QuestionType, string> = {
   TEXT: 'Fritext', YES_NO: 'Ja / nej', SINGLE_CHOICE: 'Vallista', MULTIPLE_CHOICE: 'Kryssrutor', SCALE: 'Skala',
@@ -63,21 +63,87 @@ function Login({ onLoggedIn }: { onLoggedIn: (username: string) => void }) {
   </form></main>
 }
 
-function SurveyList({ onEdit }: { onEdit: (id: string | null) => void }) {
+
+function AccountChooser({ accounts, onChoose, systemAdmin, onSystem }: { accounts: SurveyAccountMembership[]; onChoose: (id:string)=>void; systemAdmin:boolean; onSystem:()=>void }) {
+  return <main className="center-shell"><section className="card account-chooser">
+    <p className="eyebrow">Survey Service</p>
+    <h1>Välj enkätkonto</h1>
+    {accounts.length === 0
+      ? <><p>Du är inte kopplad till något enkätkonto.</p><p className="muted">Be en administratör lägga till dig på ett konto.</p></>
+      : <div className="account-choice-list">{accounts.map(account =>
+          <button className="account-choice" key={account.id} onClick={()=>onChoose(account.id)}>
+            <strong>{account.name}</strong><span>{account.role}</span>
+          </button>)}</div>}
+    {systemAdmin && <div className="system-entry"><button onClick={onSystem}>Systemadministration</button></div>}
+  </section></main>
+}
+
+function AccountAdminPanel({ accountId, onDone }: { accountId:string; onDone:()=>void }) {
+  const [admins,setAdmins]=useState<Awaited<ReturnType<typeof accountApi.admins>>>([])
+  const [username,setUsername]=useState('')
+  const [password,setPassword]=useState('')
+  const [error,setError]=useState('')
+  const [busy,setBusy]=useState(false)
+  async function load(){ try{ setAdmins(await accountApi.admins(accountId)); setError('') }catch(e){ setError(e instanceof Error?e.message:'Kunde inte läsa administratörer.') } }
+  useEffect(()=>{ void load() },[accountId])
+  async function add(e:React.FormEvent){ e.preventDefault(); setBusy(true);setError('');try{await accountApi.addAdmin(accountId,username,password||undefined);setUsername('');setPassword('');await load()}catch(e){setError(e instanceof Error?e.message:'Kunde inte lägga till administratören.')}finally{setBusy(false)}}
+  async function remove(userId:string, name:string){ if(!confirm(`Ta bort ${name} från enkätkontot?`))return;setError('');try{await accountApi.removeAdmin(accountId,userId);await load()}catch(e){setError(e instanceof Error?e.message:'Kunde inte ta bort administratören.')}}
+  return <section>
+    <div className="page-heading"><div><button className="back" onClick={onDone}>← Enkäter</button><p className="eyebrow">Enkätkonto</p><h1>Administratörer</h1><p className="muted">Hantera vilka administratörer som får arbeta i detta enkätkonto.</p></div></div>
+    {error&&<div className="error" role="alert">{error}</div>}
+    <div className="card admin-management">
+      <h2>Lägg till administratör</h2>
+      <form onSubmit={add} className="admin-add-form">
+        <label>Användarnamn<input value={username} onChange={e=>setUsername(e.target.value)} required /></label>
+        <label>Initialt lösenord <span className="muted">(endast för ny användare)</span><input type="password" value={password} onChange={e=>setPassword(e.target.value)} autoComplete="new-password" /></label>
+        <button className="primary" disabled={busy||!username.trim()}>{busy?'Lägger till…':'Lägg till'}</button>
+      </form>
+    </div>
+    <div className="card">
+      <h2>Befintliga administratörer</h2>
+      <div className="admin-list">{admins.map(admin=><div className="admin-row" key={admin.userId}><div><strong>{admin.username}</strong><span className="muted"> {admin.role}</span></div><button className="danger-ghost" onClick={()=>void remove(admin.userId,admin.username)}>Ta bort</button></div>)}</div>
+    </div>
+  </section>
+}
+
+function SystemAccountPanel({ onDone, onChanged }: { onDone:()=>void; onChanged:()=>Promise<void> }) {
+  const [accounts,setAccounts]=useState<Awaited<ReturnType<typeof systemApi.accounts>>>([])
+  const [name,setName]=useState('')
+  const [adminUsername,setAdminUsername]=useState('')
+  const [password,setPassword]=useState('')
+  const [error,setError]=useState('')
+  const [busy,setBusy]=useState(false)
+  async function load(){try{setAccounts(await systemApi.accounts());setError('')}catch(e){setError(e instanceof Error?e.message:'Kunde inte läsa enkätkonton.')}}
+  useEffect(()=>{void load()},[])
+  async function create(e:React.FormEvent){e.preventDefault();setBusy(true);setError('');try{await systemApi.createAccount(name,adminUsername,password||undefined);setName('');setAdminUsername('');setPassword('');await Promise.all([load(),onChanged()])}catch(e){setError(e instanceof Error?e.message:'Kunde inte skapa enkätkontot.')}finally{setBusy(false)}}
+  return <section>
+    <div className="page-heading"><div><button className="back" onClick={onDone}>← Tillbaka</button><p className="eyebrow">Systemadministration</p><h1>Enkätkonton</h1></div></div>
+    {error&&<div className="error" role="alert">{error}</div>}
+    <div className="card admin-management"><h2>Skapa enkätkonto</h2><form onSubmit={create} className="admin-add-form">
+      <label>Kontonamn<input value={name} onChange={e=>setName(e.target.value)} required /></label>
+      <label>Första administratör<input value={adminUsername} onChange={e=>setAdminUsername(e.target.value)} required /></label>
+      <label>Initialt lösenord <span className="muted">(krävs för ny användare)</span><input type="password" value={password} onChange={e=>setPassword(e.target.value)} autoComplete="new-password" /></label>
+      <button className="primary" disabled={busy||!name.trim()||!adminUsername.trim()}>{busy?'Skapar…':'Skapa konto'}</button>
+    </form></div>
+    <div className="card"><h2>Alla enkätkonton</h2><div className="admin-list">{accounts.map(account=><div className="admin-row" key={account.id}><div><strong>{account.name}</strong><div className="muted">{account.adminCount} administratör{account.adminCount===1?'':'er'}</div></div></div>)}</div></div>
+  </section>
+}
+
+function SurveyList({ accountId, onEdit }: { accountId:string; onEdit: (id: string | null) => void }) {
   const [items, setItems] = useState<SurveySummary[]>([])
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(true)
   const importRef = useRef<HTMLInputElement>(null)
-  async function load() { setBusy(true); setError(''); try { setItems(await surveyApi.list()) } catch(e){ setError(e instanceof Error ? e.message : 'Kunde inte läsa enkäter.') } finally { setBusy(false) } }
-  useEffect(()=>{ void load() },[])
-  async function copy(id: string) { try { await surveyApi.copy(id); await load() } catch(e){ setError(e instanceof Error ? e.message : 'Kopiering misslyckades.') } }
-  async function remove(id: string, title: string) { if (!confirm(`Radera "${title}"?`)) return; try { await surveyApi.remove(id); await load() } catch(e){ setError(e instanceof Error ? e.message : 'Radering misslyckades.') } }
+  async function load() { setBusy(true); setError(''); try { setItems(await surveyApi.list(accountId)) } catch(e){ setError(e instanceof Error ? e.message : 'Kunde inte läsa enkäter.') } finally { setBusy(false) } }
+  useEffect(()=>{ void load() },[accountId])
+  async function copy(id: string) { try { await surveyApi.copy(accountId,id); await load() } catch(e){ setError(e instanceof Error ? e.message : 'Kopiering misslyckades.') } }
+  async function remove(id: string, title: string) { if (!confirm(`Radera "${title}"?`)) return; try { await surveyApi.remove(accountId,id); await load() } catch(e){ setError(e instanceof Error ? e.message : 'Radering misslyckades.') } }
   async function importFile(file: File | undefined) {
     if (!file) return
     setError('')
     try {
       const document = JSON.parse(await file.text()) as unknown
-      const created = await surveyApi.importDefinition(document)
+      const created = await surveyApi.importDefinition(accountId,document)
       await load()
       onEdit(created.id)
     } catch(e) {
