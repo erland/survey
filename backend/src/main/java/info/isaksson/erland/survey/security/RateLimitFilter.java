@@ -38,6 +38,7 @@ public class RateLimitFilter implements ContainerRequestFilter {
         if (!enabled) return;
 
         String path = request.getUriInfo().getPath();
+        if (path.startsWith("/")) path = path.substring(1);
         int limit;
         String bucket;
         if (path.equals("api/auth/login")) {
