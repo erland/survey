@@ -25,7 +25,7 @@ class AccountAdminManagementTest {
         UUID accountId = createAccountWithAdmin(actorUsername);
         String actorCookie = login(actorUsername);
 
-        String newUsername = "member-" + UUID.randomUUID();
+        String newUsername = "member-" + UUID.randomUUID() + "@example.test";
         String newUserId = given()
                 .cookie("survey_admin_session", actorCookie)
                 .contentType(ContentType.JSON)
