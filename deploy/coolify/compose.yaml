@@ -1,7 +1,7 @@
 name: survey
 
 services:
-  backend:
+  survey-backend:
     image: ${BACKEND_IMAGE:-ghcr.io/erland/survey-backend}:${APP_VERSION:-latest}
     restart: unless-stopped
     environment:
@@ -25,11 +25,13 @@ services:
       retries: 12
       start_period: 20s
 
-  frontend:
+  survey-frontend:
     image: ${FRONTEND_IMAGE:-ghcr.io/erland/survey-frontend}:${APP_VERSION:-latest}
     restart: unless-stopped
+    environment:
+      SURVEY_BACKEND_HOST: survey-backend
     depends_on:
-      backend:
+      survey-backend:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/healthz >/dev/null || exit 1"]

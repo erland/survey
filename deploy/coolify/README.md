@@ -11,15 +11,15 @@ Internet
 HTTPS / Coolify / Traefik
   |
   v
-frontend:80
+survey-frontend:80
   |
-  +--> /api/* --> backend:8080
+  +--> /api/* --> survey-backend:8080
                      |
                      v
              shared PostgreSQL:5432
 ```
 
-Endast `frontend` ska exponeras via Coolifys proxy. Backend och PostgreSQL ska vara interna.
+Endast `survey-frontend` ska exponeras via Coolifys proxy. Backend och PostgreSQL ska vara interna.
 
 ## 1. Gemensam PostgreSQL
 
@@ -103,12 +103,12 @@ Om GHCR-paketen inte är publika måste Coolify konfigureras med registry creden
 Tilldela den publika domänen endast till tjänsten:
 
 ```text
-frontend
+survey-frontend
 ```
 
 Frontend-containern lyssnar på port 80. Compose-filen innehåller avsiktligt ingen host-`ports:` mapping; Coolify/Traefik ska ansluta direkt till containerporten.
 
-Backend ska inte ha någon publik domän.
+`survey-backend` ska inte ha någon publik domän.
 
 ## 6. HTTPS, cookies och CSRF
 
@@ -159,8 +159,8 @@ Kontrollera innan Deploy:
 
 Förväntat tillstånd:
 
-- `backend`: healthy
-- `frontend`: healthy
+- `survey-backend`: healthy
+- `survey-frontend`: healthy
 - Flyway-migrationer: lyckade
 
 ## 10. Uppgradering och rollback
@@ -185,3 +185,23 @@ survey
 ```
 
 helst till extern S3/R2-kompatibel lagring.
+
+
+## Unika service-namn på predefined network
+
+Coolifys predefined network delas av flera applikationer. Använd därför inte generiska service-alias som `backend` eller `frontend` i denna profil.
+
+Survey använder:
+
+```text
+survey-backend
+survey-frontend
+```
+
+Frontend-imagen använder runtime-variabeln:
+
+```text
+SURVEY_BACKEND_HOST=survey-backend
+```
+
+Nginx-konfigurationen genereras vid containerstart från en template. Detta undviker DNS-alias-kollisioner med andra Coolify-appar på det gemensamma nätet.

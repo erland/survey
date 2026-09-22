@@ -16,6 +16,6 @@ images:
 
 services:
   public:
-    - frontend
+    - survey-frontend
   internal:
-    - backend
+    - survey-backend
