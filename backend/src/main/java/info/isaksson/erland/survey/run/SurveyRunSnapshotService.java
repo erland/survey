@@ -30,11 +30,6 @@ public class SurveyRunSnapshotService {
     @Inject AccountAccessService accountAccess;
 
     @Transactional
-    public SurveyRun createDraft(UUID userId, UUID surveyId, String title) {
-        return createDraft(userId, accountAccess.requireSingleAccount(userId), surveyId, title);
-    }
-
-    @Transactional
     public SurveyRun createDraft(UUID userId, UUID accountId, UUID surveyId, String title) {
         Survey source = accountAccess.requireSurvey(userId, accountId, surveyId);
 
