@@ -12,7 +12,6 @@ import java.time.Duration;
 import java.util.Map;
 
 @Path("/api/auth")
-@Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
 public class AuthResource {
     @Inject AuthService authService;
@@ -25,6 +24,7 @@ public class AuthResource {
 
     @POST
     @Path("/login")
+    @Consumes(MediaType.APPLICATION_JSON)
     public Response login(LoginRequest request) {
         if (request == null) {
             return invalidCredentials();
