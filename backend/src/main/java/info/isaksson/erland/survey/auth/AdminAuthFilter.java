@@ -39,6 +39,6 @@ public class AdminAuthFilter implements ContainerRequestFilter {
                     .build());
             return;
         }
-        requestContext.setProperty(PRINCIPAL_PROPERTY, principal.get());
+        adminRequestContext.setPrincipal(principal.get());
     }
 }
