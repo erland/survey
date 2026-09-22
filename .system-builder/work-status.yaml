@@ -1,8 +1,8 @@
 project: survey-service
 mode: CREATE
-current_step: STEP-40
-current_step_name: System admin API
-status: implemented_ci_verified
+current_step: STEP-41
+current_step_name: Account admin management
+status: implemented_pending_ci
 completed_through: STEP-40
 release_baseline: 1.0.0
 verification_policy:
@@ -76,5 +76,25 @@ step_40:
     - ordinary-admin authorization test added
     - failed creation cleanup test added
     - CI run 60 passed backend, frontend and end-to-end
-next_step: STEP-41
-next_step_name: Account admin management
+step_41:
+  changes:
+    - GET /api/admin/accounts/{accountId}/admins lists account administrators
+    - POST /api/admin/accounts/{accountId}/admins links an existing active admin or creates a new admin user
+    - DELETE /api/admin/accounts/{accountId}/admins/{adminUserId} removes account membership
+    - all admin-management operations require membership in the target survey account
+    - new admin users require an initial password of at least 12 characters
+    - removing the final account administrator is blocked with LAST_ACCOUNT_ADMIN
+    - account row locking serializes concurrent administrator removals
+  invariants:
+    - only administrators already linked to an account may manage its administrators
+    - the same admin_user may belong to multiple survey accounts
+    - membership removal does not delete the global admin_user
+    - every survey account always retains at least one administrator
+  verification:
+    - add/list/remove integration test added
+    - existing-user multi-account membership test added
+    - last-admin protection test added
+    - cross-account admin-management denial test added
+    - CI pending
+next_step: STEP-42
+next_step_name: Account selection and admin UX
