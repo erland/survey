@@ -43,7 +43,7 @@ BEGIN
 END $$;
 
 CREATE OR REPLACE FUNCTION assign_default_survey_account()
-RETURNS TRIGGER AS $
+RETURNS TRIGGER AS $body$
 BEGIN
     IF NEW.survey_account_id IS NULL THEN
         SELECT m.survey_account_id
@@ -55,7 +55,7 @@ BEGIN
     END IF;
     RETURN NEW;
 END;
-$ LANGUAGE plpgsql;
+$body$ LANGUAGE plpgsql;
 
 CREATE TRIGGER trg_assign_default_survey_account
 BEFORE INSERT ON survey
