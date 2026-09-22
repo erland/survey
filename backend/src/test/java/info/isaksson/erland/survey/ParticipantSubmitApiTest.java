@@ -17,6 +17,7 @@ class ParticipantSubmitApiTest {
 
     private String[] openRun() {
         String cookie = login();
+        String accountId = accountId(cookie);
         String surveyId = given().cookie("survey_admin_session", cookie).contentType(ContentType.JSON)
                 .body("""
                     {"title":"Submit test","status":"DRAFT","questions":[
@@ -24,10 +25,10 @@ class ParticipantSubmitApiTest {
                       {"type":"YES_NO","text":"Frivillig?","required":false,"options":[]}
                     ]}
                     """)
-                .post("/api/admin/surveys").then().statusCode(201).extract().path("id");
+                .post("/api/admin/accounts/{accountId}/surveys", accountId).then().statusCode(201).extract().path("id");
         String runId = given().cookie("survey_admin_session", cookie).contentType(ContentType.JSON).body("{}")
-                .post("/api/admin/surveys/{surveyId}/runs", surveyId).then().statusCode(201).extract().path("id");
-        String publicId = given().cookie("survey_admin_session", cookie).post("/api/admin/runs/{runId}/open", runId)
+                .post("/api/admin/accounts/{accountId}/surveys/{surveyId}/runs", accountId, surveyId).then().statusCode(201).extract().path("id");
+        String publicId = given().cookie("survey_admin_session", cookie).post("/api/admin/accounts/{accountId}/runs/{runId}/open", accountId, runId)
                 .then().statusCode(200).extract().path("publicId");
         String token = given().post("/api/public/runs/{publicId}/participants", publicId)
                 .then().statusCode(201).extract().path("participantToken");
@@ -78,4 +79,11 @@ class ParticipantSubmitApiTest {
                 .put("/api/public/runs/{publicId}/participants/current/responses/{questionId}", publicId, questionId)
                 .then().statusCode(409).body("code", equalTo("PARTICIPANT_SESSION_NOT_ACTIVE"));
     }
+    private String accountId(String cookie) {
+        return given().cookie("survey_admin_session", cookie)
+                .get("/api/admin/accounts")
+                .then().statusCode(200)
+                .extract().path("[0].id");
+    }
+
 }
