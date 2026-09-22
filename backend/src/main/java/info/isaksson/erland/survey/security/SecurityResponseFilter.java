@@ -19,6 +19,7 @@ public class SecurityResponseFilter implements ContainerResponseFilter {
         response.getHeaders().putSingle("Cross-Origin-Resource-Policy", "same-origin");
 
         String path = request.getUriInfo().getPath();
+        if (path.startsWith("/")) path = path.substring(1);
         if (path.startsWith("api/")) {
             response.getHeaders().putSingle("Cache-Control", "no-store");
         }
