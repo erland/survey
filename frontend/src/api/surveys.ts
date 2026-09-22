@@ -73,10 +73,31 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>
 }
 
+export interface AuthMe {
+  authenticated: boolean
+  username: string
+  systemAdmin: boolean
+}
+export interface SurveyAccountMembership { id: string; name: string; role: string }
+export interface AccountAdminView { userId: string; username: string; active: boolean; role: string; createdAt: string }
+export interface SystemAccountSummary { id: string; name: string; adminCount: number; createdAt: string; updatedAt: string }
+
 export const authApi = {
-  me: () => request<{ authenticated: boolean; username: string }>('/api/auth/me'),
+  me: () => request<AuthMe>('/api/auth/me'),
   login: (username: string, password: string) => request<{ username: string; expiresAt: string }>('/api/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
   logout: () => request<void>('/api/auth/logout', { method: 'POST' }),
+}
+
+export const accountApi = {
+  list: () => request<SurveyAccountMembership[]>('/api/admin/accounts'),
+  admins: (accountId: string) => request<AccountAdminView[]>(`/api/admin/accounts/${accountId}/admins`),
+  addAdmin: (accountId: string, username: string, initialPassword?: string) => request<AccountAdminView>(`/api/admin/accounts/${accountId}/admins`, { method: 'POST', body: JSON.stringify({ username, initialPassword: initialPassword || null }) }),
+  removeAdmin: (accountId: string, userId: string) => request<void>(`/api/admin/accounts/${accountId}/admins/${userId}`, { method: 'DELETE' }),
+}
+
+export const systemApi = {
+  accounts: () => request<SystemAccountSummary[]>('/api/system/accounts'),
+  createAccount: (accountName: string, adminUsername: string, adminPassword?: string) => request<{ id: string; name: string; adminUserId: string; adminUsername: string }>('/api/system/accounts', { method: 'POST', body: JSON.stringify({ accountName, adminUsername, adminPassword: adminPassword || null }) }),
 }
 
 
@@ -129,18 +150,18 @@ export interface PresentationViewData {
 }
 
 export const runApi = {
-  list: (surveyId: string) => request<SurveyRunView[]>(`/api/admin/surveys/${surveyId}/runs`),
-  create: (surveyId: string, title?: string) => request<SurveyRunView>(`/api/admin/surveys/${surveyId}/runs`, { method: 'POST', body: JSON.stringify({ title: title ?? null }) }),
-  get: (runId: string) => request<SurveyRunView>(`/api/admin/runs/${runId}`),
-  open: (runId: string) => request<SurveyRunView>(`/api/admin/runs/${runId}/open`, { method: 'POST' }),
-  summary: (runId: string) => request<RunLiveSummary>(`/api/admin/runs/${runId}/summary`),
-  results: (runId: string) => request<QuestionResult[]>(`/api/admin/runs/${runId}/results`),
-  eventsUrl: (runId: string) => `/api/admin/runs/${runId}/events`,
-  createPresentationToken: (runId: string) => request<PresentationTokenView>(`/api/admin/runs/${runId}/presentation-tokens`, { method: 'POST' }),
-  revokePresentationToken: (runId: string, tokenId: string) => request<void>(`/api/admin/runs/${runId}/presentation-tokens/${tokenId}`, { method: 'DELETE' }),
-  exportResultsJson: (runId: string) => downloadFile(`/api/admin/runs/${runId}/export/json`, 'survey-results.json'),
-  exportResultsCsv: (runId: string) => downloadFile(`/api/admin/runs/${runId}/export/csv`, 'survey-results.csv'),
-  exportPackage: (runId: string) => downloadFile(`/api/admin/runs/${runId}/export/package`, 'survey-package.zip'),
+  list: (accountId: string, surveyId: string) => request<SurveyRunView[]>(`/api/admin/accounts/${accountId}/surveys/${surveyId}/runs`),
+  create: (accountId: string, surveyId: string, title?: string) => request<SurveyRunView>(`/api/admin/accounts/${accountId}/surveys/${surveyId}/runs`, { method: 'POST', body: JSON.stringify({ title: title ?? null }) }),
+  get: (accountId: string, runId: string) => request<SurveyRunView>(`/api/admin/accounts/${accountId}/runs/${runId}`),
+  open: (accountId: string, runId: string) => request<SurveyRunView>(`/api/admin/accounts/${accountId}/runs/${runId}/open`, { method: 'POST' }),
+  summary: (accountId: string, runId: string) => request<RunLiveSummary>(`/api/admin/accounts/${accountId}/runs/${runId}/summary`),
+  results: (accountId: string, runId: string) => request<QuestionResult[]>(`/api/admin/accounts/${accountId}/runs/${runId}/results`),
+  eventsUrl: (accountId: string, runId: string) => `/api/admin/accounts/${accountId}/runs/${runId}/events`,
+  createPresentationToken: (accountId: string, runId: string) => request<PresentationTokenView>(`/api/admin/accounts/${accountId}/runs/${runId}/presentation-tokens`, { method: 'POST' }),
+  revokePresentationToken: (accountId: string, runId: string, tokenId: string) => request<void>(`/api/admin/accounts/${accountId}/runs/${runId}/presentation-tokens/${tokenId}`, { method: 'DELETE' }),
+  exportResultsJson: (accountId: string, runId: string) => downloadFile(`/api/admin/accounts/${accountId}/runs/${runId}/export/json`, 'survey-results.json'),
+  exportResultsCsv: (accountId: string, runId: string) => downloadFile(`/api/admin/accounts/${accountId}/runs/${runId}/export/csv`, 'survey-results.csv'),
+  exportPackage: (accountId: string, runId: string) => downloadFile(`/api/admin/accounts/${accountId}/runs/${runId}/export/package`, 'survey-package.zip'),
 }
 
 export const presentationApi = {
@@ -161,14 +182,14 @@ async function downloadFile(url: string, fallbackFilename = 'export.bin'): Promi
 }
 
 export const surveyApi = {
-  list: () => request<SurveySummary[]>('/api/admin/surveys'),
-  get: (id: string) => request<SurveyView>(`/api/admin/surveys/${id}`),
-  create: (input: SurveyInput) => request<SurveyView>('/api/admin/surveys', { method: 'POST', body: JSON.stringify(input) }),
-  update: (id: string, input: SurveyInput) => request<SurveyView>(`/api/admin/surveys/${id}`, { method: 'PUT', body: JSON.stringify(input) }),
-  copy: (id: string) => request<SurveyView>(`/api/admin/surveys/${id}/copy`, { method: 'POST' }),
-  remove: (id: string) => request<void>(`/api/admin/surveys/${id}`, { method: 'DELETE' }),
-  exportDefinition: (id: string) => downloadFile(`/api/admin/surveys/${id}/export`, 'survey-definition.json'),
-  importDefinition: (document: unknown) => request<SurveyView>('/api/admin/surveys/import', { method: 'POST', body: JSON.stringify(document) }),
+  list: (accountId: string) => request<SurveySummary[]>(`/api/admin/accounts/${accountId}/surveys`),
+  get: (accountId: string, id: string) => request<SurveyView>(`/api/admin/accounts/${accountId}/surveys/${id}`),
+  create: (accountId: string, input: SurveyInput) => request<SurveyView>(`/api/admin/accounts/${accountId}/surveys`, { method: 'POST', body: JSON.stringify(input) }),
+  update: (accountId: string, id: string, input: SurveyInput) => request<SurveyView>(`/api/admin/accounts/${accountId}/surveys/${id}`, { method: 'PUT', body: JSON.stringify(input) }),
+  copy: (accountId: string, id: string) => request<SurveyView>(`/api/admin/accounts/${accountId}/surveys/${id}/copy`, { method: 'POST' }),
+  remove: (accountId: string, id: string) => request<void>(`/api/admin/accounts/${accountId}/surveys/${id}`, { method: 'DELETE' }),
+  exportDefinition: (accountId: string, id: string) => downloadFile(`/api/admin/accounts/${accountId}/surveys/${id}/export`, 'survey-definition.json'),
+  importDefinition: (accountId: string, document: unknown) => request<SurveyView>(`/api/admin/accounts/${accountId}/surveys/import`, { method: 'POST', body: JSON.stringify(document) }),
 }
 
 export function emptyQuestion(type: QuestionType = 'TEXT'): QuestionInput {
