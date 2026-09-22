@@ -6,7 +6,6 @@ import info.isaksson.erland.survey.surveyapi.ApiException;
 import io.agroal.api.AgroalDataSource;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import jakarta.transaction.Transactional;
 
 import java.sql.*;
 import java.time.Instant;
@@ -46,7 +45,6 @@ public class SystemAccountService {
         }
     }
 
-    @Transactional
     public CreatedAccount create(AdminPrincipal principal, CreateAccountRequest request) {
         requireSystemAdmin(principal);
         validate(request);
