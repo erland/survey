@@ -2,6 +2,7 @@ package info.isaksson.erland.survey.exporting;
 
 import info.isaksson.erland.survey.domain.*;
 import io.quarkus.test.junit.QuarkusTest;
+import io.agroal.api.AgroalDataSource;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import org.junit.jupiter.api.Test;
@@ -14,11 +15,12 @@ import static org.junit.jupiter.api.Assertions.*;
 @QuarkusTest
 class RunResultExportServiceTest {
     @Inject RunResultExportService service;
+    @Inject AgroalDataSource dataSource;
 
     @Test
     @Transactional
     void exportsPortableAnonymousResultDocument() {
-        UUID ownerId = UUID.randomUUID();
+        UUID ownerId = lookupTestAdminId();
         Survey survey = new Survey();
         survey.id = UUID.randomUUID(); survey.ownerId = ownerId; survey.title = "Mall"; survey.status = SurveyStatus.DRAFT;
         survey.createdAt = Instant.now(); survey.updatedAt = Instant.now(); survey.persist();
@@ -49,5 +51,15 @@ class RunResultExportServiceTest {
         assertEquals("anon-001", exported.responses().getFirst().participantId());
         assertEquals("Svar", exported.responses().getFirst().answers().getFirst().textValue());
         assertFalse(exported.responses().getFirst().participantId().contains(p.id.toString()));
+    }
+    private UUID lookupTestAdminId() {
+        try (var connection = dataSource.getConnection();
+             var statement = connection.prepareStatement("SELECT id FROM admin_user WHERE username = 'test-admin'");
+             var rs = statement.executeQuery()) {
+            assertTrue(rs.next(), "test admin must be bootstrapped");
+            return rs.getObject(1, UUID.class);
+        } catch (java.sql.SQLException e) {
+            throw new IllegalStateException(e);
+        }
     }
 }
