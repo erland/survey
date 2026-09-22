@@ -38,18 +38,17 @@ class LegacyUpgradeMigrationTest {
                     .migrate();
 
             try (Connection connection = dataSource.getConnection()) {
-                connection.setSchema(schema);
                 try (PreparedStatement ps = connection.prepareStatement("""
-                        INSERT INTO admin_user (id, username, password_hash)
+                        INSERT INTO %s.admin_user (id, username, password_hash)
                         VALUES (?, 'legacy-admin', 'legacy-password-hash')
-                        """)) {
+                        """.formatted(schema))) {
                     ps.setObject(1, adminId);
                     ps.executeUpdate();
                 }
                 try (PreparedStatement ps = connection.prepareStatement("""
-                        INSERT INTO survey (id, owner_id, title, description)
+                        INSERT INTO %s.survey (id, owner_id, title, description)
                         VALUES (?, ?, 'Legacy survey', 'Must survive V8/V9')
-                        """)) {
+                        """.formatted(schema))) {
                     ps.setObject(1, surveyId);
                     ps.setObject(2, adminId);
                     ps.executeUpdate();
@@ -65,23 +64,21 @@ class LegacyUpgradeMigrationTest {
                     .migrate();
 
             try (Connection connection = dataSource.getConnection()) {
-                connection.setSchema(schema);
-
                 assertFalse(columnExists(connection, schema, "survey", "owner_id"));
                 assertTrue(columnExists(connection, schema, "survey", "survey_account_id"));
                 assertEquals("Legacy survey", scalar(connection,
-                        "SELECT title FROM survey WHERE id = ?", surveyId));
+                        "SELECT title FROM " + schema + ".survey WHERE id = ?", surveyId));
                 assertEquals(adminId, scalar(connection,
-                        "SELECT created_by_admin_user_id FROM survey WHERE id = ?", surveyId));
+                        "SELECT created_by_admin_user_id FROM " + schema + ".survey WHERE id = ?", surveyId));
 
                 UUID accountId = (UUID) scalar(connection,
-                        "SELECT survey_account_id FROM survey WHERE id = ?", surveyId);
+                        "SELECT survey_account_id FROM " + schema + ".survey WHERE id = ?", surveyId);
                 assertNotNull(accountId);
                 assertEquals(1L, ((Number) scalar(connection, """
                         SELECT COUNT(*)
-                        FROM survey_account_admin
+                        FROM %s.survey_account_admin
                         WHERE survey_account_id = ? AND admin_user_id = ?
-                        """, accountId, adminId)).longValue());
+                        """.formatted(schema), accountId, adminId)).longValue());
             }
         } finally {
             try (Connection connection = dataSource.getConnection();
