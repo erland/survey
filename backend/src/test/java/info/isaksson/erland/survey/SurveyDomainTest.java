@@ -24,7 +24,6 @@ class SurveyDomainTest {
         UUID ownerId = lookupTestAdminId();
         Survey survey = new Survey();
         survey.id = UUID.randomUUID();
-        survey.ownerId = ownerId;
         survey.surveyAccountId = lookupTestAccountId(ownerId);
         survey.createdByAdminUserId = ownerId;
         survey.title = "Workshop";
