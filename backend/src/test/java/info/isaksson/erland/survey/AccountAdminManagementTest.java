@@ -49,7 +49,7 @@ class AccountAdminManagementTest {
                 .body("username", hasItem(actorUsername))
                 .body("$", hasSize(2));
 
-        String newAdminCookie = login(newUsername);
+        String newAdminCookie = login(newUsername, "new-admin-password-123");
         given()
                 .cookie("survey_admin_session", newAdminCookie)
                 .get("/api/admin/accounts/" + accountId + "/surveys")
@@ -148,9 +148,13 @@ class AccountAdminManagementTest {
     }
 
     private String login(String username) {
+        return login(username, "test-password-123");
+    }
+
+    private String login(String username, String password) {
         return given()
                 .contentType(ContentType.JSON)
-                .body("{\"username\":\"" + username + "\",\"password\":\"test-password-123\"}")
+                .body("{\"username\":\"" + username + "\",\"password\":\"" + password + "\"}")
                 .post("/api/auth/login")
                 .then().statusCode(200)
                 .extract().cookie("survey_admin_session");
