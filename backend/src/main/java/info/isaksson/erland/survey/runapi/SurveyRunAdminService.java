@@ -24,20 +24,10 @@ public class SurveyRunAdminService {
     @Inject SurveyRunLifecycleService lifecycleService;
 
     @Transactional
-    public List<RunView> list(UUID userId, UUID surveyId) {
-        return list(userId, accountAccess.requireSingleAccount(userId), surveyId);
-    }
-
-    @Transactional
     public List<RunView> list(UUID userId, UUID accountId, UUID surveyId) {
         accountAccess.requireSurvey(userId, accountId, surveyId);
         return runRepository.find("survey.id = ?1 and survey.surveyAccountId = ?2 order by createdAt desc", surveyId, accountId)
                 .list().stream().map(this::map).toList();
-    }
-
-    @Transactional
-    public RunView get(UUID userId, UUID runId) {
-        return get(userId, accountAccess.requireSingleAccount(userId), runId);
     }
 
     @Transactional
@@ -46,18 +36,8 @@ public class SurveyRunAdminService {
     }
 
     @Transactional
-    public RunView create(UUID userId, UUID surveyId, String title) {
-        return create(userId, accountAccess.requireSingleAccount(userId), surveyId, title);
-    }
-
-    @Transactional
     public RunView create(UUID userId, UUID accountId, UUID surveyId, String title) {
         return map(snapshotService.createDraft(userId, accountId, surveyId, title));
-    }
-
-    @Transactional
-    public RunView open(UUID userId, UUID runId) {
-        return open(userId, accountAccess.requireSingleAccount(userId), runId);
     }
 
     @Transactional
