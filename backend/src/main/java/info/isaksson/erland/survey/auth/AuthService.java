@@ -38,7 +38,11 @@ public class AuthService {
                      "SELECT id, username, password_hash FROM admin_user WHERE lower(username) = lower(?) AND active = TRUE")) {
             statement.setString(1, username.trim());
             try (ResultSet rs = statement.executeQuery()) {
-                if (!rs.next() || !passwordHasher.verify(password, rs.getString("password_hash"))) {
+                if (!rs.next()) {
+                    return Optional.empty();
+                }
+                String passwordHash = rs.getString("password_hash");
+                if (passwordHash == null || !passwordHasher.verify(password, passwordHash)) {
                     return Optional.empty();
                 }
                 UUID userId = rs.getObject("id", UUID.class);
