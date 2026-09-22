@@ -1,9 +1,9 @@
 project: survey-service
 mode: CHANGE
-current_step: STEP-49
-current_step_name: Password reset links for existing administrators
+current_step: STEP-50
+current_step_name: Self-service administrator password change
 status: implemented_ci_verified
-completed_through: STEP-49
+completed_through: STEP-50
 release_baseline: 1.0.0
 verification_policy:
   local_static: required
@@ -178,8 +178,8 @@ release_readiness:
   warnings:
     - release version and tag are intentionally deferred to the release step
     - production smoke test is pending after merge/deployment
-next_step: STEP-50
-next_step_name: Let signed-in administrators change their own password
+next_step: MERGE
+next_step_name: Merge PR #5 after human approval
 
 step_46:
   changes:
@@ -259,3 +259,22 @@ step_49:
     - backend integration tests reject reset-link creation for inactive and system-administrator accounts
     - Playwright covers system-admin reset-link creation, password replacement and login with the new password
     - CI run 148 passed backend, frontend and end-to-end
+
+step_50:
+  changes:
+    - every signed-in administrator, including the bootstrap/system administrator, can change their own password
+    - password change requires the current password and a new password of at least 8 characters
+    - the current authenticated session remains valid after a successful change
+    - all other active sessions for the administrator are revoked
+    - unused initial-password and password-reset tokens for the administrator are revoked
+    - password-change navigation is available from account selection, account administration and system administration
+    - returning from password change preserves the appropriate administration context
+  invariants:
+    - knowledge of the current password is required for self-service password change
+    - the previous password no longer authenticates after a successful change
+    - a password change cannot leave another active session or unused reset token usable
+    - bootstrap/system administrator remains configuration-created but may change its persisted password after creation
+  verification:
+    - backend integration test covers incorrect-current-password rejection, successful change, preservation of the current session, revocation of another session, old-password rejection and new-password login
+    - Playwright covers self-service password change through the signed-in UI
+    - CI run 156 passed backend, frontend and end-to-end
