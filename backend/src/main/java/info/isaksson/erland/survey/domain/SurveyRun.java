@@ -13,7 +13,7 @@ import java.util.*;
 public class SurveyRun extends PanacheEntityBase {
     @Id public UUID id;
     @ManyToOne(fetch = FetchType.LAZY, optional = false) @JoinColumn(name = "survey_id") public Survey survey;
-    @Column(name = "created_by", nullable = false) public UUID createdBy;
+    @Column(name = "created_by") public UUID createdBy;
     @Column(name = "public_id", nullable = false, length = 64) public String publicId;
     @Column(name = "join_code", nullable = false, length = 12) public String joinCode;
     @Column(nullable = false, length = 300) public String title;
