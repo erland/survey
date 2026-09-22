@@ -214,4 +214,17 @@ test('multi-user accounts stay isolated and administrators can manage membership
   await expect(page.locator('.account-name')).toHaveText(accountB)
   await expect(page.locator('.survey-card').filter({ hasText: surveyB })).toBeVisible()
   await expect(page.locator('.survey-card').filter({ hasText: surveyA })).toHaveCount(0)
+
+  await logout(page)
+  await login(page)
+  await page.getByRole('button', { name: 'Systemadministration' }).click()
+  const sharedSystemRow = page.locator('.admin-row').filter({ hasText: sharedAdmin })
+  await sharedSystemRow.getByRole('button', { name: 'Skapa återställningslänk' }).click()
+  await expect(page.getByRole('heading', { name: `Återställ lösenord för ${sharedAdmin}` })).toBeVisible()
+  const resetPassword = 'e2e-reset-password-123'
+  await setPasswordFromVisibleInvite(page, resetPassword)
+
+  await logout(page)
+  await signIn(page, sharedAdmin, resetPassword)
+  await expect(page.getByRole('heading', { name: 'Välj enkätkonto' })).toBeVisible()
 })
