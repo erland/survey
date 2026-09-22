@@ -109,6 +109,7 @@ export const systemApi = {
   accounts: () => request<SystemAccountSummary[]>('/api/system/accounts'),
   createAccount: (accountName: string, adminUsername: string) => request<{ id: string; name: string; adminUserId: string; adminUsername: string; initialPasswordPath: string | null; initialPasswordExpiresAt: string | null }>('/api/system/accounts', { method: 'POST', body: JSON.stringify({ accountName, adminUsername }) }),
   admins: () => request<SystemAdminUserView[]>('/api/system/admins'),
+  createPasswordResetLink: (userId: string) => request<{ path: string; expiresAt: string }>(`/api/system/admins/${userId}/password-reset`, { method: 'POST' }),
   deactivateAdmin: (userId: string) => request<void>(`/api/system/admins/${userId}/deactivate`, { method: 'POST' }),
   activateAdmin: (userId: string) => request<void>(`/api/system/admins/${userId}/activate`, { method: 'POST' }),
   deleteAdmin: (userId: string) => request<void>(`/api/system/admins/${userId}`, { method: 'DELETE' }),
