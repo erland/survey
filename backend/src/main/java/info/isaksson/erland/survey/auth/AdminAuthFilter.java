@@ -25,7 +25,9 @@ public class AdminAuthFilter implements ContainerRequestFilter {
     @Override
     public void filter(ContainerRequestContext requestContext) {
         String path = normalizePath(requestContext.getUriInfo().getPath());
-        if (!path.equals("api/admin") && !path.startsWith("api/admin/")) {
+        boolean adminApi = path.equals("api/admin") || path.startsWith("api/admin/");
+        boolean systemApi = path.equals("api/system") || path.startsWith("api/system/");
+        if (!adminApi && !systemApi) {
             return;
         }
 
