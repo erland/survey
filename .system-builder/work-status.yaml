@@ -1,9 +1,9 @@
 project: survey-service
 mode: CHANGE
-current_step: STEP-48
-current_step_name: Initial password links for new administrators
+current_step: STEP-49
+current_step_name: Password reset links for existing administrators
 status: implemented_ci_verified
-completed_through: STEP-48
+completed_through: STEP-49
 release_baseline: 1.0.0
 verification_policy:
   local_static: required
@@ -178,8 +178,8 @@ release_readiness:
   warnings:
     - release version and tag are intentionally deferred to the release step
     - production smoke test is pending after merge/deployment
-next_step: STEP-49
-next_step_name: Create password-reset links for existing administrators
+next_step: STEP-50
+next_step_name: Let signed-in administrators change their own password
 
 step_46:
   changes:
@@ -239,3 +239,23 @@ step_48:
     - CI run 140 exposed an invite-link visibility defect in E2E
     - repair keeps the setup link visible after account creation
     - CI run 141 passed backend, frontend and end-to-end
+
+step_49:
+  changes:
+    - system administrators can generate a PASSWORD_RESET link for an existing active regular administrator
+    - password-reset links reuse the same expiring hashed-token infrastructure and /admin/set-password flow as initial-password links
+    - system administration exposes a create-reset-link action and a copyable reset URL
+    - consuming a reset link replaces the password hash and revokes all active sessions for the target administrator
+    - inactive administrators must be reactivated before a reset link can be created
+    - bootstrap/system administrator accounts are excluded from this lifecycle flow
+  invariants:
+    - password-reset links are time-limited and single-use
+    - issuing a new token revokes older unused password tokens for the same administrator
+    - clear reset tokens are never stored in the database
+    - an unused reset link does not invalidate the current password or sessions
+    - successful password reset invalidates the old password and existing sessions
+  verification:
+    - backend integration tests cover reset-link creation, old-session revocation, old-password rejection, new-password login and single-use enforcement
+    - backend integration tests reject reset-link creation for inactive and system-administrator accounts
+    - Playwright covers system-admin reset-link creation, password replacement and login with the new password
+    - CI run 148 passed backend, frontend and end-to-end
