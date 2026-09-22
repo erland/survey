@@ -96,6 +96,7 @@ export const authApi = {
   login: (username: string, password: string) => request<{ username: string; expiresAt: string }>('/api/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
   logout: () => request<void>('/api/auth/logout', { method: 'POST' }),
   setPassword: (token: string, password: string) => request<void>('/api/auth/password-token/consume', { method: 'POST', body: JSON.stringify({ token, password }) }),
+  changePassword: (currentPassword: string, newPassword: string) => request<void>('/api/auth/change-password', { method: 'POST', body: JSON.stringify({ currentPassword, newPassword }) }),
 }
 
 export const accountApi = {
