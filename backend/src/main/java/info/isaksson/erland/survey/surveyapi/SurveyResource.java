@@ -1,11 +1,9 @@
 package info.isaksson.erland.survey.surveyapi;
 
-import info.isaksson.erland.survey.auth.AdminAuthFilter;
+import info.isaksson.erland.survey.auth.AdminRequestContext;
 import info.isaksson.erland.survey.auth.AuthService.AdminPrincipal;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
-import jakarta.ws.rs.container.ContainerRequestContext;
-import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
@@ -20,7 +18,7 @@ import static info.isaksson.erland.survey.surveyapi.SurveyDtos.*;
 @Consumes(MediaType.APPLICATION_JSON)
 public class SurveyResource {
     @Inject SurveyService service;
-    @Context ContainerRequestContext requestContext;
+    @Inject AdminRequestContext adminRequestContext;
 
     @GET
     public List<SurveySummary> list() {
@@ -60,8 +58,8 @@ public class SurveyResource {
     }
 
     private AdminPrincipal principal() {
-        Object value = requestContext.getProperty(AdminAuthFilter.PRINCIPAL_PROPERTY);
-        if (value instanceof AdminPrincipal principal) return principal;
+        AdminPrincipal principal = adminRequestContext.principal();
+        if (principal != null) return principal;
         throw new ApiException(401, "ADMIN_AUTH_REQUIRED", "Administratörsinloggning krävs.");
     }
 }
