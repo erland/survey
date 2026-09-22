@@ -227,4 +227,12 @@ test('multi-user accounts stay isolated and administrators can manage membership
   await logout(page)
   await signIn(page, sharedAdmin, resetPassword)
   await expect(page.getByRole('heading', { name: 'Välj enkätkonto' })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Ändra lösenord' }).click()
+  await expect(page.getByRole('heading', { name: 'Ändra lösenord' })).toBeVisible()
+  await page.getByLabel('Nuvarande lösenord').fill(resetPassword)
+  await page.getByLabel('Nytt lösenord', { exact: true }).fill('e2e-self-change-123')
+  await page.getByLabel('Upprepa nytt lösenord').fill('e2e-self-change-123')
+  await page.getByRole('button', { name: 'Ändra lösenord' }).click()
+  await expect(page.getByRole('status')).toContainText('Lösenordet är ändrat')
 })
