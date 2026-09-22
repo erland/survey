@@ -35,10 +35,6 @@ public class SurveyPackageExportService {
     @ConfigProperty(name = "quarkus.application.version", defaultValue = "unknown")
     String applicationVersion;
 
-    public byte[] export(UUID userId, UUID runId) {
-        return export(userId, accountAccess.requireSingleAccount(userId), runId);
-    }
-
     public byte[] export(UUID userId, UUID accountId, UUID runId) {
         ResultExportDocument resultDocument = resultExportService.export(userId, accountId, runId);
         SurveyRun run = accountAccess.requireRun(userId, accountId, runId);
