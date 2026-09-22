@@ -42,7 +42,10 @@ public class ParticipantResponseService {
         r.values.clear();
         addValues(r, q, input);
         r.updatedAt = Instant.now();
-        s.lastActivityAt = r.updatedAt;
+        // Activity freshness is maintained by the dedicated heartbeat endpoint.
+        // Do not update the versioned participant_session row for every autosave:
+        // multiple answer saves can run concurrently and would otherwise contend
+        // with each other and with heartbeat on the same optimistic-lock version.
         liveEvents.publishAfterCommit(s.run.id, "response_updated");
         return map(r);
     }
