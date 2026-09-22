@@ -1,5 +1,6 @@
 package info.isaksson.erland.survey.result;
 
+import info.isaksson.erland.survey.auth.AccountAccessService;
 import info.isaksson.erland.survey.domain.*;
 import info.isaksson.erland.survey.run.SurveyRunLifecycleService;
 import info.isaksson.erland.survey.surveyapi.ApiException;
@@ -17,12 +18,18 @@ import static info.isaksson.erland.survey.result.ResultDtos.*;
 @ApplicationScoped
 public class ResultService {
     @Inject SurveyRunRepository runs;
+    @Inject AccountAccessService accountAccess;
     @Inject SurveyRunLifecycleService lifecycle;
     @Inject EntityManager em;
 
     @Transactional
-    public List<QuestionResult> all(UUID ownerId, UUID runId) {
-        SurveyRun run = ownedRun(ownerId, runId);
+    public List<QuestionResult> all(UUID userId, UUID runId) {
+        return all(userId, accountAccess.requireSingleAccount(userId), runId);
+    }
+
+    @Transactional
+    public List<QuestionResult> all(UUID userId, UUID accountId, UUID runId) {
+        SurveyRun run = accountRun(userId, accountId, runId);
         return allForRun(run.id);
     }
 
@@ -37,8 +44,13 @@ public class ResultService {
     }
 
     @Transactional
-    public QuestionResult one(UUID ownerId, UUID runId, UUID questionId) {
-        SurveyRun run = ownedRun(ownerId, runId);
+    public QuestionResult one(UUID userId, UUID runId, UUID questionId) {
+        return one(userId, accountAccess.requireSingleAccount(userId), runId, questionId);
+    }
+
+    @Transactional
+    public QuestionResult one(UUID userId, UUID accountId, UUID runId, UUID questionId) {
+        SurveyRun run = accountRun(userId, accountId, runId);
         SurveyRunQuestion question = run.questions.stream()
                 .filter(q -> q.id.equals(questionId))
                 .findFirst()
@@ -46,10 +58,8 @@ public class ResultService {
         return aggregate(run.id, question);
     }
 
-    private SurveyRun ownedRun(UUID ownerId, UUID runId) {
-        SurveyRun run = runs.find("id = ?1 and createdBy = ?2", runId, ownerId)
-                .firstResultOptional()
-                .orElseThrow(() -> new ApiException(404, "RUN_NOT_FOUND", "Enkätgenomförandet kunde inte hittas."));
+    private SurveyRun accountRun(UUID userId, UUID accountId, UUID runId) {
+        SurveyRun run = accountAccess.requireRun(userId, accountId, runId);
         lifecycle.synchronize(run.id, Instant.now());
         return run;
     }
