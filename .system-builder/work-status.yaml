@@ -2,7 +2,7 @@ project: survey-service
 mode: CHANGE
 current_step: STEP-47
 current_step_name: Admin authentication foundation
-status: implemented_pending_ci
+status: implemented_ci_verified
 completed_through: STEP-46
 release_baseline: 1.0.0
 verification_policy:
@@ -178,8 +178,8 @@ release_readiness:
   warnings:
     - release version and tag are intentionally deferred to the release step
     - production smoke test is pending after merge/deployment
-next_step: VERIFY
-next_step_name: Verify admin authentication foundation in CI
+next_step: STEP-48
+next_step_name: Create new administrators with initial-password links
 
 step_46:
   changes:
@@ -214,4 +214,4 @@ step_47:
     - migration coverage checks password-token schema and nullable password hashes
     - policy coverage checks eight-character passwords and email requirement
     - token service coverage checks hash-only persistence and revocation of older tokens
-    - pending CI
+    - CI run 128 passed backend, frontend and end-to-end
