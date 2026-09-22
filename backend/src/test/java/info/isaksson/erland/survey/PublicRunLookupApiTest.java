@@ -30,7 +30,7 @@ class PublicRunLookupApiTest {
     @Test
     void openRunCanBeResolvedByPublicIdAndCaseInsensitiveJoinCode() {
         SurveyRun run = createRun("ABC234", SurveyRunStatus.DRAFT, null, null);
-        QuarkusTransaction.requiringNew().run(() -> lifecycle.openNow(run.createdBy, run.id));
+        QuarkusTransaction.requiringNew().run(() -> lifecycle.openNow(run.createdBy, run.survey.surveyAccountId, run.id));
 
         given()
                 .when().get("/api/public/runs/{publicId}", run.publicId)
@@ -89,7 +89,8 @@ class PublicRunLookupApiTest {
         return QuarkusTransaction.requiringNew().call(() -> {
             Survey survey = new Survey();
             survey.id = UUID.randomUUID();
-            survey.ownerId = ownerId;
+            survey.surveyAccountId = lookupTestAccountId(ownerId);
+            survey.createdByAdminUserId = ownerId;
             survey.title = "Public lookup survey";
             survey.createdAt = Instant.now();
             survey.updatedAt = survey.createdAt;
@@ -98,7 +99,7 @@ class PublicRunLookupApiTest {
             SurveyRun run = new SurveyRun();
             run.id = UUID.randomUUID();
             run.survey = survey;
-            run.createdBy = survey.ownerId;
+            run.createdBy = ownerId;
             run.publicId = UUID.randomUUID().toString().replace("-", "");
             run.joinCode = joinCode;
             run.title = "Public lookup run";
@@ -116,10 +117,22 @@ class PublicRunLookupApiTest {
         try (Connection c = dataSource.getConnection();
              PreparedStatement ps = c.prepareStatement("SELECT id FROM admin_user WHERE username='test-admin'");
              ResultSet rs = ps.executeQuery()) {
-            if (!rs.next()) {
-                throw new IllegalStateException("test admin must be bootstrapped");
-            }
+            if (!rs.next()) throw new IllegalStateException("test admin must be bootstrapped");
             return rs.getObject(1, UUID.class);
+        } catch (SQLException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    private UUID lookupTestAccountId(UUID adminId) {
+        try (Connection c = dataSource.getConnection();
+             PreparedStatement ps = c.prepareStatement(
+                     "SELECT survey_account_id FROM survey_account_admin WHERE admin_user_id = ? ORDER BY created_at LIMIT 1")) {
+            ps.setObject(1, adminId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) throw new IllegalStateException("test admin must belong to a survey account");
+                return rs.getObject(1, UUID.class);
+            }
         } catch (SQLException e) {
             throw new IllegalStateException(e);
         }
