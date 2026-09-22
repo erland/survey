@@ -1,5 +1,6 @@
 package info.isaksson.erland.survey.exporting;
 
+import info.isaksson.erland.survey.auth.AccountAccessService;
 import info.isaksson.erland.survey.domain.*;
 import info.isaksson.erland.survey.surveyapi.ApiException;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -15,14 +16,18 @@ import static info.isaksson.erland.survey.exporting.RunResultExportDtos.*;
 @ApplicationScoped
 public class RunResultExportService {
     @Inject SurveyRunRepository runRepository;
+    @Inject AccountAccessService accountAccess;
     @Inject ParticipantSessionRepository participantRepository;
     @Inject ResponseRepository responseRepository;
 
     @Transactional
-    public ResultExportDocument export(UUID ownerId, UUID runId) {
-        SurveyRun run = runRepository.find("id = ?1 and createdBy = ?2", runId, ownerId)
-                .firstResultOptional()
-                .orElseThrow(() -> new ApiException(404, "RUN_NOT_FOUND", "Enkätgenomförandet kunde inte hittas."));
+    public ResultExportDocument export(UUID userId, UUID runId) {
+        return export(userId, accountAccess.requireSingleAccount(userId), runId);
+    }
+
+    @Transactional
+    public ResultExportDocument export(UUID userId, UUID accountId, UUID runId) {
+        SurveyRun run = accountAccess.requireRun(userId, accountId, runId);
 
         List<SurveyRunQuestion> questions = run.questions.stream()
                 .sorted(Comparator.comparingInt(q -> q.position))
