@@ -101,6 +101,62 @@ class SystemAdminUserLifecycleTest {
     }
 
     @Test
+    void administratorWithHistoricalSurveyCannotBeDeletedAfterMembershipRemoval() throws Exception {
+        String systemCookie = login("test-admin", "test-password-123");
+        String username = "history-" + UUID.randomUUID();
+        UUID userId = createAdmin(username, false, false);
+        UUID accountId = UUID.randomUUID();
+        UUID surveyId = UUID.randomUUID();
+
+        try (var connection = dataSource.getConnection()) {
+            try (PreparedStatement ps = connection.prepareStatement(
+                    "INSERT INTO survey_account (id, name) VALUES (?, ?)")) {
+                ps.setObject(1, accountId);
+                ps.setString(2, "History " + username);
+                ps.executeUpdate();
+            }
+            try (PreparedStatement ps = connection.prepareStatement("""
+                    INSERT INTO survey_account_admin (survey_account_id, admin_user_id, role)
+                    VALUES (?, ?, 'ADMIN')
+                    """)) {
+                ps.setObject(1, accountId);
+                ps.setObject(2, userId);
+                ps.executeUpdate();
+            }
+            try (PreparedStatement ps = connection.prepareStatement("""
+                    INSERT INTO survey (
+                        id, owner_id, survey_account_id, created_by_admin_user_id,
+                        title, description, status, created_at, updated_at, version
+                    )
+                    VALUES (?, ?, ?, ?, ?, NULL, 'DRAFT', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0)
+                    """)) {
+                ps.setObject(1, surveyId);
+                ps.setObject(2, userId);
+                ps.setObject(3, accountId);
+                ps.setObject(4, userId);
+                ps.setString(5, "Historical survey");
+                ps.executeUpdate();
+            }
+            try (PreparedStatement ps = connection.prepareStatement("""
+                    DELETE FROM survey_account_admin
+                    WHERE survey_account_id = ? AND admin_user_id = ?
+                    """)) {
+                ps.setObject(1, accountId);
+                ps.setObject(2, userId);
+                ps.executeUpdate();
+            }
+        }
+
+        given()
+                .cookie("survey_admin_session", systemCookie)
+                .delete("/api/system/admins/" + userId)
+                .then().statusCode(409)
+                .body("code", equalTo("ADMIN_HAS_HISTORY"));
+
+        assertTrue(adminExists(userId));
+    }
+
+    @Test
     void activeAdministratorMustBeDeactivatedBeforeDeletion() throws Exception {
         String systemCookie = login("test-admin", "test-password-123");
         UUID userId = createAdmin("active-orphan-" + UUID.randomUUID(), false, true);
