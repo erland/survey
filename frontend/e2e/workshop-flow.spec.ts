@@ -16,7 +16,7 @@ async function login(page: Page) {
 
 async function logout(page: Page) {
   await page.getByRole('button', { name: 'Logga ut' }).click()
-  await expect(page.getByRole('heading', { name: 'Administratör' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Logga in' })).toBeVisible()
 }
 
 async function createSimpleSurvey(page: Page, title: string) {
