@@ -151,7 +151,7 @@ function SystemAccountPanel({ onDone, onChanged }: { onDone:()=>void; onChanged:
   }
 
   return <section>
-    <div className="page-heading"><div><button className="back" onClick={onDone}>← Tillbaka</button><p className="eyebrow">Systemadministration</p><h1>Enkätkonton och användare</h1></div></div>
+    <div className="page-heading"><div><button className="back" onClick={onDone}>← Tillbaka</button><p className="eyebrow">Systemadministration</p><h1>Enkätkonton</h1></div></div>
     {error&&<div className="error" role="alert">{error}</div>}
     <div className="card admin-management"><h2>Skapa enkätkonto</h2><form onSubmit={create} className="admin-add-form">
       <label>Kontonamn<input value={name} onChange={e=>setName(e.target.value)} required /></label>
