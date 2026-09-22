@@ -125,16 +125,15 @@ class SystemAdminUserLifecycleTest {
             }
             try (PreparedStatement ps = connection.prepareStatement("""
                     INSERT INTO survey (
-                        id, owner_id, survey_account_id, created_by_admin_user_id,
+                        id, survey_account_id, created_by_admin_user_id,
                         title, description, status, created_at, updated_at, version
                     )
-                    VALUES (?, ?, ?, ?, ?, NULL, 'DRAFT', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0)
+                    VALUES (?, ?, ?, ?, NULL, 'DRAFT', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0)
                     """)) {
                 ps.setObject(1, surveyId);
-                ps.setObject(2, userId);
-                ps.setObject(3, accountId);
-                ps.setObject(4, userId);
-                ps.setString(5, "Historical survey");
+                ps.setObject(2, accountId);
+                ps.setObject(3, userId);
+                ps.setString(4, "Historical survey");
                 ps.executeUpdate();
             }
             try (PreparedStatement ps = connection.prepareStatement("""
