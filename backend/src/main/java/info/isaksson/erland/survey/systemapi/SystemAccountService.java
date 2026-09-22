@@ -1,5 +1,6 @@
 package info.isaksson.erland.survey.systemapi;
 
+import info.isaksson.erland.survey.auth.AdminCredentialPolicy;
 import info.isaksson.erland.survey.auth.AuthService.AdminPrincipal;
 import info.isaksson.erland.survey.auth.PasswordHasher;
 import info.isaksson.erland.survey.surveyapi.ApiException;
@@ -17,6 +18,7 @@ import java.util.UUID;
 public class SystemAccountService {
     @Inject AgroalDataSource dataSource;
     @Inject PasswordHasher passwordHasher;
+    @Inject AdminCredentialPolicy credentialPolicy;
 
     public List<AccountSummary> list(AdminPrincipal principal) {
         requireSystemAdmin(principal);
@@ -105,10 +107,8 @@ public class SystemAccountService {
             }
         }
 
-        if (password == null || password.isBlank() || password.length() < 12) {
-            throw new ApiException(400, "ADMIN_PASSWORD_REQUIRED",
-                    "Ett nytt administratörskonto kräver ett lösenord på minst 12 tecken.");
-        }
+        String email = credentialPolicy.normalizeNewAdminEmail(username);
+        credentialPolicy.requireValidPassword(password);
 
         UUID id = UUID.randomUUID();
         try (PreparedStatement ps = connection.prepareStatement("""
@@ -116,7 +116,7 @@ public class SystemAccountService {
                 VALUES (?, ?, ?, FALSE, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                 """)) {
             ps.setObject(1, id);
-            ps.setString(2, username);
+            ps.setString(2, email);
             ps.setString(3, passwordHasher.hash(password));
             ps.executeUpdate();
         }
@@ -131,7 +131,7 @@ public class SystemAccountService {
             throw new ApiException(400, "INVALID_ACCOUNT", "Kontonamn får vara högst 300 tecken.");
         }
         if (request.adminUsername() == null || request.adminUsername().isBlank()) {
-            throw new ApiException(400, "INVALID_ADMIN", "Första administratörens användarnamn måste anges.");
+            throw new ApiException(400, "INVALID_ADMIN", "Första administratörens e-postadress eller befintliga användarnamn måste anges.");
         }
         if (request.adminUsername().trim().length() > 200) {
             throw new ApiException(400, "INVALID_ADMIN", "Administratörens användarnamn får vara högst 200 tecken.");
