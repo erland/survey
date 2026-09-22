@@ -59,7 +59,7 @@ public class AuthService {
         }
         try (Connection connection = dataSource.getConnection();
              PreparedStatement statement = connection.prepareStatement("""
-                 SELECT u.id, u.username
+                 SELECT u.id, u.username, u.system_admin
                  FROM admin_session s
                  JOIN admin_user u ON u.id = s.admin_user_id
                  WHERE s.token_hash = ?
@@ -72,7 +72,7 @@ public class AuthService {
                 if (!rs.next()) {
                     return Optional.empty();
                 }
-                return Optional.of(new AdminPrincipal(rs.getObject("id", UUID.class), rs.getString("username")));
+                return Optional.of(new AdminPrincipal(rs.getObject("id", UUID.class), rs.getString("username"), rs.getBoolean("system_admin")));
             }
         } catch (SQLException e) {
             throw new IllegalStateException("Could not validate admin session", e);
@@ -122,5 +122,5 @@ public class AuthService {
     }
 
     public record LoginResult(UUID userId, String username, String token, Instant expiresAt) {}
-    public record AdminPrincipal(UUID userId, String username) {}
+    public record AdminPrincipal(UUID userId, String username, boolean systemAdmin) {}
 }
