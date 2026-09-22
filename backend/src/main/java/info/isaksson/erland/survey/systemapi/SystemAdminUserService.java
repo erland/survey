@@ -198,13 +198,12 @@ public class SystemAdminUserService {
 
     private boolean hasHistoricalReferences(Connection connection, UUID userId) throws SQLException {
         for (String sql : List.of(
-                "SELECT EXISTS (SELECT 1 FROM survey WHERE owner_id = ? OR created_by_admin_user_id = ?)",
+                "SELECT EXISTS (SELECT 1 FROM survey WHERE created_by_admin_user_id = ?)",
                 "SELECT EXISTS (SELECT 1 FROM survey_run WHERE created_by = ?)",
                 "SELECT EXISTS (SELECT 1 FROM presentation_token WHERE created_by = ?)"
         )) {
             try (PreparedStatement ps = connection.prepareStatement(sql)) {
                 ps.setObject(1, userId);
-                if (sql.contains("created_by_admin_user_id")) ps.setObject(2, userId);
                 try (ResultSet rs = ps.executeQuery()) {
                     rs.next();
                     if (rs.getBoolean(1)) return true;
