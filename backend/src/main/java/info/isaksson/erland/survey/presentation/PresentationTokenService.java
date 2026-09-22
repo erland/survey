@@ -34,11 +34,6 @@ public class PresentationTokenService {
     long tokenHours;
 
     @Transactional
-    public CreatedPresentationToken create(UUID userId, UUID runId) {
-        return create(userId, accountAccess.requireSingleAccount(userId), runId);
-    }
-
-    @Transactional
     public CreatedPresentationToken create(UUID userId, UUID accountId, UUID runId) {
         SurveyRun run = accountAccess.requireRun(userId, accountId, runId);
         String rawToken = newToken();
@@ -52,11 +47,6 @@ public class PresentationTokenService {
         token.expiresAt = now.plus(Duration.ofHours(tokenHours));
         tokens.persist(token);
         return new CreatedPresentationToken(token.id, rawToken, token.expiresAt, "/present/" + rawToken);
-    }
-
-    @Transactional
-    public void revoke(UUID userId, UUID runId, UUID tokenId) {
-        revoke(userId, accountAccess.requireSingleAccount(userId), runId, tokenId);
     }
 
     @Transactional
