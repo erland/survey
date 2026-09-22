@@ -25,11 +25,6 @@ public class RunSummaryService {
     @Inject ParticipantSessionRepository participantSessionRepository;
 
     @Transactional
-    public LiveSummary get(UUID userId, UUID runId, Instant now) {
-        return get(userId, accountAccess.requireSingleAccount(userId), runId, now);
-    }
-
-    @Transactional
     public LiveSummary get(UUID userId, UUID accountId, UUID runId, Instant now) {
         SurveyRun run = accountAccess.requireRun(userId, accountId, runId);
         return getForRun(run.id, now);
