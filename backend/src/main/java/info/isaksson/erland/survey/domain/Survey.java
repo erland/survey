@@ -10,6 +10,8 @@ import java.util.*;
 public class Survey extends PanacheEntityBase {
     @Id public UUID id;
     @Column(name="owner_id", nullable=false) public UUID ownerId;
+    @Column(name="survey_account_id", nullable=false) public UUID surveyAccountId;
+    @Column(name="created_by_admin_user_id") public UUID createdByAdminUserId;
     @Column(nullable=false, length=300) public String title;
     @Column(columnDefinition="text") public String description;
     @Enumerated(EnumType.STRING) @Column(nullable=false, length=32) public SurveyStatus status = SurveyStatus.DRAFT;
