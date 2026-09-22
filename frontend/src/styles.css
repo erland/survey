@@ -53,3 +53,21 @@ button:disabled{cursor:not-allowed;opacity:.62}
 .progress-fill,.result-bar-fill,.presentation-bar-fill{transition:width .25s ease}
 @media (prefers-reduced-motion: reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
 @media (forced-colors: active){.choice-card:has(input:checked),.scale-choice:has(input:checked){outline:2px solid CanvasText}.result-bar-fill,.presentation-bar-fill,.progress-fill{background:CanvasText}.run-status{border:1px solid CanvasText}}
+
+
+/* Multi-user account administration */
+.account-chooser { width: min(680px, 100%); }
+.account-choice-list { display: grid; gap: .75rem; margin-top: 1.25rem; }
+.account-choice { display: flex; align-items: center; justify-content: space-between; gap: 1rem; width: 100%; padding: 1rem 1.1rem; text-align: left; }
+.account-choice span { color: var(--muted); font-size: .9rem; }
+.system-entry { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+.account-name { font-weight: 600; }
+.topbar-actions { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.admin-management { margin-bottom: 1rem; }
+.admin-add-form { display: grid; gap: 1rem; }
+.admin-list { display: grid; gap: .5rem; margin-top: 1rem; }
+.admin-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .75rem 0; border-bottom: 1px solid var(--border); }
+.admin-row:last-child { border-bottom: 0; }
+@media (min-width: 760px) {
+  .admin-add-form { grid-template-columns: 1fr 1fr auto; align-items: end; }
+}
