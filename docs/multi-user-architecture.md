@@ -243,3 +243,12 @@ Detta är avsiktligt:
 - först därefter tas `owner_id` bort i en separat migration.
 
 Denna övergång gör datamigreringen isolerad och bakåtkompatibel medan tenant-isoleringen kan införas och testas separat.
+
+
+### Kompatibilitetsbrygga i STEP-38
+
+Under STEP-38 finns en databas-trigger som endast aktiveras om äldre kod försöker skapa en `survey` utan `survey_account_id`. Triggern härleder då kontot från den befintliga `owner_id`-användarens medlemskap.
+
+Kolumnen är fortfarande `NOT NULL` i databasen. Ny produktionskod sätter kontot explicit.
+
+Triggern är temporär och ska tas bort i STEP-39 samtidigt som owner-baserad authorization och äldre skapandeflöden ersätts.
