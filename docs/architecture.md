@@ -233,6 +233,10 @@ Ingen mikroservicearkitektur rekommenderas.
 
 ## 6. Domänmodell
 
+Administrativa resurser ägs av `SurveyAccount`, inte av en enskild administratör. `AdminUser` får åtkomst genom medlemskap i `survey_account_admin`. `createdByAdminUserId` är historisk/audit-metadata och används inte som tenant-gräns.
+
+
+
 ### 6.1 Survey
 
 Representerar redigerbar enkätmall.
@@ -242,7 +246,8 @@ Exempel:
 ```text
 Survey
 - id
-- ownerId
+- surveyAccountId
+- createdByAdminUserId
 - title
 - description
 - status
@@ -522,7 +527,7 @@ Operationen ska vara idempotent.
 ### 9.1 SSE-endpoint
 
 ```http
-GET /api/admin/runs/{runId}/events
+GET /api/admin/accounts/{accountId}/runs/{runId}/events
 Accept: text/event-stream
 ```
 
@@ -564,7 +569,7 @@ Servern kan senare skicka färdiga aggregat i eventen om belastning kräver det.
 ### Översikt
 
 ```http
-GET /api/admin/runs/{runId}/summary
+GET /api/admin/accounts/{accountId}/runs/{runId}/summary
 ```
 
 Svar:
@@ -580,7 +585,7 @@ Svar:
 ### Resultat per fråga
 
 ```http
-GET /api/admin/runs/{runId}/questions/{questionId}/result
+GET /api/admin/accounts/{accountId}/runs/{runId}/results/{questionId}
 ```
 
 Ja/nej:

@@ -33,7 +33,7 @@ class SurveyRunLifecycleServiceTest {
         Instant opens = base.plus(10, ChronoUnit.MINUTES);
         Instant closes = base.plus(20, ChronoUnit.MINUTES);
 
-        lifecycle.schedule(run.createdBy, run.id, opens, closes);
+        lifecycle.schedule(run.createdBy, run.survey.surveyAccountId, run.id, opens, closes);
         assertEquals(SurveyRunStatus.SCHEDULED, run.status);
         assertFalse(lifecycle.acceptsNewParticipants(run, base));
 
@@ -52,12 +52,12 @@ class SurveyRunLifecycleServiceTest {
     void openNowAcceptsParticipantsUntilExplicitClose() {
         SurveyRun run = createDraftRun();
 
-        lifecycle.openNow(run.createdBy, run.id);
+        lifecycle.openNow(run.createdBy, run.survey.surveyAccountId, run.id);
         assertEquals(SurveyRunStatus.OPEN, run.status);
         assertNotNull(run.openedAt);
         assertTrue(lifecycle.acceptsNewParticipants(run, Instant.now()));
 
-        lifecycle.close(run.createdBy, run.id);
+        lifecycle.close(run.createdBy, run.survey.surveyAccountId, run.id);
         assertEquals(SurveyRunStatus.CLOSED, run.status);
         assertNotNull(run.closedAt);
         assertFalse(lifecycle.acceptsNewParticipants(run, Instant.now()));
@@ -69,14 +69,16 @@ class SurveyRunLifecycleServiceTest {
         SurveyRun run = createDraftRun();
         Instant opens = Instant.now().plus(1, ChronoUnit.HOURS);
         var ex = assertThrows(RuntimeException.class,
-                () -> lifecycle.schedule(run.createdBy, run.id, opens, opens));
+                () -> lifecycle.schedule(run.createdBy, run.survey.surveyAccountId, run.id, opens, opens));
         assertTrue(ex.getMessage().contains("Sluttiden") || ex.getClass().getSimpleName().contains("ApiException"));
     }
 
     private SurveyRun createDraftRun() {
         Survey survey = new Survey();
         survey.id = UUID.randomUUID();
-        survey.ownerId = lookupTestAdminId();
+        UUID adminId = lookupTestAdminId();
+        survey.surveyAccountId = lookupTestAccountId(adminId);
+        survey.createdByAdminUserId = adminId;
         survey.title = "Lifecycle survey";
         survey.createdAt = Instant.now();
         survey.updatedAt = survey.createdAt;
@@ -85,7 +87,7 @@ class SurveyRunLifecycleServiceTest {
         SurveyRun run = new SurveyRun();
         run.id = UUID.randomUUID();
         run.survey = survey;
-        run.createdBy = survey.ownerId;
+        run.createdBy = adminId;
         run.publicId = UUID.randomUUID().toString().replace("-", "");
         run.joinCode = "R" + UUID.randomUUID().toString().replace("-", "").substring(0, 5).toUpperCase();
         run.title = "Lifecycle run";
@@ -94,6 +96,20 @@ class SurveyRunLifecycleServiceTest {
         runs.persist(run);
         runs.flush();
         return run;
+    }
+
+    private UUID lookupTestAccountId(UUID adminId) {
+        try (Connection c = dataSource.getConnection();
+             PreparedStatement ps = c.prepareStatement(
+                     "SELECT survey_account_id FROM survey_account_admin WHERE admin_user_id = ? ORDER BY created_at LIMIT 1")) {
+            ps.setObject(1, adminId);
+            try (ResultSet rs = ps.executeQuery()) {
+                assertTrue(rs.next(), "test admin must belong to a survey account");
+                return rs.getObject(1, UUID.class);
+            }
+        } catch (SQLException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     private UUID lookupTestAdminId() {

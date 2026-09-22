@@ -1,4 +1,4 @@
-package info.isaksson.erland.survey.result;
+package info.isaksson.erland.survey.systemapi;
 
 import info.isaksson.erland.survey.auth.AdminRequestContext;
 import info.isaksson.erland.survey.auth.AuthService.AdminPrincipal;
@@ -6,27 +6,29 @@ import info.isaksson.erland.survey.surveyapi.ApiException;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 
+import java.net.URI;
 import java.util.List;
-import java.util.UUID;
 
-import static info.isaksson.erland.survey.result.ResultDtos.QuestionResult;
-
-@Path("/api/admin/runs/{runId}/results")
+@Path("/api/system/accounts")
 @Produces(MediaType.APPLICATION_JSON)
-public class ResultResource {
-    @Inject ResultService service;
+public class SystemAccountResource {
+    @Inject SystemAccountService service;
     @Inject AdminRequestContext adminRequestContext;
 
     @GET
-    public List<QuestionResult> all(@PathParam("runId") UUID runId) {
-        return service.all(principal().userId(), runId);
+    public List<SystemAccountService.AccountSummary> list() {
+        return service.list(principal());
     }
 
-    @GET
-    @Path("/{questionId}")
-    public QuestionResult one(@PathParam("runId") UUID runId, @PathParam("questionId") UUID questionId) {
-        return service.one(principal().userId(), runId, questionId);
+    @POST
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response create(SystemAccountService.CreateAccountRequest request) {
+        var created = service.create(principal(), request);
+        return Response.created(URI.create("/api/system/accounts/" + created.id()))
+                .entity(created)
+                .build();
     }
 
     private AdminPrincipal principal() {

@@ -16,7 +16,7 @@ public class PresentationToken extends PanacheEntityBase {
     @JoinColumn(name = "run_id", nullable = false)
     public SurveyRun run;
 
-    @Column(name = "created_by", nullable = false)
+    @Column(name = "created_by")
     public UUID createdBy;
 
     @Column(name = "token_hash", nullable = false, length = 128)

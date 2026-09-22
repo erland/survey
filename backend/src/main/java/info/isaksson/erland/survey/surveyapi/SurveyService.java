@@ -1,5 +1,6 @@
 package info.isaksson.erland.survey.surveyapi;
 
+import info.isaksson.erland.survey.auth.AccountAccessService;
 import info.isaksson.erland.survey.domain.*;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -16,23 +17,27 @@ import static info.isaksson.erland.survey.surveyapi.SurveyDtos.*;
 @ApplicationScoped
 public class SurveyService {
     @Inject SurveyRepository surveyRepository;
+    @Inject AccountAccessService accountAccess;
 
-    public List<SurveySummary> list(UUID ownerId) {
-        return surveyRepository.find("ownerId = ?1 order by updatedAt desc", ownerId).list().stream()
+    public List<SurveySummary> list(UUID userId, UUID accountId) {
+        accountAccess.requireMembership(userId, accountId);
+        return surveyRepository.find("surveyAccountId = ?1 order by updatedAt desc", accountId).list().stream()
                 .map(this::toSummary)
                 .toList();
     }
 
-    public SurveyView get(UUID ownerId, UUID surveyId) {
-        return toView(findOwned(ownerId, surveyId));
+    public SurveyView get(UUID userId, UUID accountId, UUID surveyId) {
+        return toView(accountAccess.requireSurvey(userId, accountId, surveyId));
     }
 
     @Transactional
-    public SurveyView create(UUID ownerId, SurveyInput input) {
+    public SurveyView create(UUID userId, UUID accountId, SurveyInput input) {
         validate(input);
+        accountAccess.requireMembership(userId, accountId);
         Survey survey = new Survey();
         survey.id = UUID.randomUUID();
-        survey.ownerId = ownerId;
+        survey.surveyAccountId = accountId;
+        survey.createdByAdminUserId = userId;
         survey.createdAt = Instant.now();
         survey.updatedAt = survey.createdAt;
         apply(survey, input);
@@ -41,26 +46,27 @@ public class SurveyService {
     }
 
     @Transactional
-    public SurveyView update(UUID ownerId, UUID surveyId, SurveyInput input) {
+    public SurveyView update(UUID userId, UUID accountId, UUID surveyId, SurveyInput input) {
         validate(input);
-        Survey survey = findOwned(ownerId, surveyId);
+        Survey survey = accountAccess.requireSurvey(userId, accountId, surveyId);
         apply(survey, input);
         survey.updatedAt = Instant.now();
         return toView(survey);
     }
 
     @Transactional
-    public void delete(UUID ownerId, UUID surveyId) {
-        Survey survey = findOwned(ownerId, surveyId);
+    public void delete(UUID userId, UUID accountId, UUID surveyId) {
+        Survey survey = accountAccess.requireSurvey(userId, accountId, surveyId);
         surveyRepository.delete(survey);
     }
 
     @Transactional
-    public SurveyView copy(UUID ownerId, UUID surveyId) {
-        Survey source = findOwned(ownerId, surveyId);
+    public SurveyView copy(UUID userId, UUID accountId, UUID surveyId) {
+        Survey source = accountAccess.requireSurvey(userId, accountId, surveyId);
         Survey copy = new Survey();
         copy.id = UUID.randomUUID();
-        copy.ownerId = ownerId;
+        copy.surveyAccountId = accountId;
+        copy.createdByAdminUserId = userId;
         copy.title = source.title + " (kopia)";
         copy.description = source.description;
         copy.status = SurveyStatus.DRAFT;
@@ -69,11 +75,6 @@ public class SurveyService {
         copy.questions = cloneQuestions(copy, source.questions);
         surveyRepository.persist(copy);
         return toView(copy);
-    }
-
-    private Survey findOwned(UUID ownerId, UUID surveyId) {
-        return surveyRepository.find("id = ?1 and ownerId = ?2", surveyId, ownerId).firstResultOptional()
-                .orElseThrow(() -> new ApiException(404, "SURVEY_NOT_FOUND", "Enkäten kunde inte hittas."));
     }
 
     private void apply(Survey survey, SurveyInput input) {

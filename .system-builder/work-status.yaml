@@ -1,13 +1,13 @@
 project: survey-service
 mode: CREATE
-current_step: STEP-36
-current_step_name: Release candidate
+current_step: STEP-45
+current_step_name: Multi-user E2E and security hardening
 status: implemented_ci_verified
-completed_through: STEP-36
-release_candidate: 0.1.0-rc.1
+completed_through: STEP-45
+release_baseline: 1.0.0
 verification_policy:
   local_static: required
-  runtime: verified_in_ci
+  runtime: required_for_code_steps
 history_summary:
   - STEP-01..03: bootstrap, CI, PostgreSQL and Flyway
   - STEP-04..08: admin authentication, survey domain/API and editor
@@ -17,20 +17,166 @@ history_summary:
   - STEP-26..30: survey/result import-export and complete archival package
   - STEP-31..33: UX, accessibility and security hardening
   - STEP-34: Playwright end-to-end coverage and CI E2E job
-  - STEP-35: production deployment profile
-step_36:
+  - STEP-35: production and Coolify deployment profiles
+  - STEP-36: release candidate / first production release
+  - STEP-37: multi-user account architecture and migration plan
+step_38:
   changes:
-    - backend and frontend version set to 0.1.0-rc.1
-    - CHANGELOG.md added
-    - release notes added for 0.1.0-rc.1
-    - RC checklist added with post-merge smoke tests and stop criteria
-    - known limitations documented
-    - README status updated for the release candidate
+    - Flyway V8 adds survey_account and survey_account_admin
+    - admin_user gains system_admin and active
+    - survey gains mandatory survey_account_id and created_by_admin_user_id
+    - existing surveys migrate to an initial Default account
+    - existing admins are linked to the initial account during migration
+    - configured bootstrap admin is promoted to system_admin and linked to the initial account on startup
+    - new and copied surveys receive survey_account_id while legacy owner_id remains temporarily
+    - inactive admin users are rejected by login/session authentication
+    - Panache domain entities and repositories added for survey accounts and memberships
+  transition:
+    - owner_id remains until STEP-39 moves authorization to account membership
+    - public participant behavior is unchanged
   verification:
-    - previous CI run 19 passed backend, frontend and end-to-end tests
-    - final RC commit verified by CI run 23: backend, frontend and end-to-end all passed
-  notes:
-    - do not create the v0.1.0-rc.1 tag until the RC commit is merged and CI on main is green
-    - publish the GitHub release as a prerelease
-next_step: RELEASE
-next_step_name: Merge, smoke test and tag v0.1.0-rc.1
+    - migration schema tests added
+    - survey account persistence tests added
+    - bootstrap system-admin membership test added
+    - CI run 39 passed backend, frontend and end-to-end
+step_39:
+  changes:
+    - central AccountAccessService enforces survey-account membership
+    - legacy admin APIs resolve exactly one account and reject ambiguous multi-account sessions
+    - account-scoped survey API added under /api/admin/accounts/{accountId}/surveys
+    - account-scoped run/result/export/presentation/live APIs added under /api/admin/accounts/{accountId}/runs
+    - survey CRUD authorization moved from owner_id to survey_account membership
+    - run creation/lifecycle/read authorization moved to survey_account membership
+    - result and export authorization moved to survey_account membership
+    - presentation-token administration moved to survey_account membership
+    - cross-account integration test added with two independent survey accounts
+  compatibility:
+    - existing /api/admin routes remain functional for users with exactly one account
+    - users with multiple accounts receive ACCOUNT_SELECTION_REQUIRED on legacy routes
+    - participant/public APIs remain unchanged
+  verification:
+    - CI run 53 passed backend, frontend and end-to-end
+step_40:
+  changes:
+    - authenticated principal now exposes system_admin
+    - /api/system routes require an authenticated admin session
+    - GET /api/system/accounts lists survey accounts for system admins
+    - POST /api/system/accounts atomically creates a survey account and first ADMIN membership
+    - existing active admin users can be linked as first account admin
+    - new admin users require an initial password of at least 12 characters
+    - ordinary survey administrators receive SYSTEM_ADMIN_REQUIRED
+    - auth /me exposes systemAdmin for later frontend UX
+  invariants:
+    - only system_admin=true may create survey accounts
+    - every newly created survey account has at least one ADMIN before commit
+    - account and first-admin creation use one explicit database transaction
+    - newly created account admins are not system administrators
+  verification:
+    - system-admin creation integration test added
+    - ordinary-admin authorization test added
+    - failed creation cleanup test added
+    - CI run 60 passed backend, frontend and end-to-end
+step_41:
+  changes:
+    - GET /api/admin/accounts/{accountId}/admins lists account administrators
+    - POST /api/admin/accounts/{accountId}/admins links an existing active admin or creates a new admin user
+    - DELETE /api/admin/accounts/{accountId}/admins/{adminUserId} removes account membership
+    - all admin-management operations require membership in the target survey account
+    - new admin users require an initial password of at least 12 characters
+    - removing the final account administrator is blocked with LAST_ACCOUNT_ADMIN
+    - account row locking serializes concurrent administrator removals
+  invariants:
+    - only administrators already linked to an account may manage its administrators
+    - the same admin_user may belong to multiple survey accounts
+    - membership removal does not delete the global admin_user
+    - every survey account always retains at least one administrator
+  verification:
+    - add/list/remove integration test added
+    - existing-user multi-account membership test added
+    - last-admin protection test added
+    - cross-account admin-management denial test added
+    - CI run 67 passed backend, frontend and end-to-end
+step_42:
+  changes:
+    - GET /api/admin/accounts lists survey accounts for the authenticated administrator
+    - frontend survey and run clients now use account-scoped APIs exclusively
+    - selected survey account is encoded in /admin/accounts/{accountId}
+    - users with one account enter it automatically
+    - users with multiple accounts receive an explicit account chooser
+    - users with no accounts receive an informational no-account view
+    - current account is visible in the admin header and users can switch accounts
+    - account administrator management UI added
+    - system administrator survey-account creation UI added
+    - auth /me systemAdmin flag controls system-administration navigation
+    - selected account remains tab-local because it is carried in the URL rather than server-side session state
+  verification:
+    - frontend TypeScript build passes
+    - backend integration tests pass
+    - existing workshop E2E flow passes through account-scoped APIs
+    - Playwright multi-account scenario creates a second account, opens the account chooser and switches account
+    - CI run 75 passed backend, frontend and end-to-end
+step_43:
+  changes:
+    - GET /api/system/admins lists global administrator users and account membership counts
+    - POST /api/system/admins/{userId}/deactivate disables login and revokes active sessions
+    - POST /api/system/admins/{userId}/activate re-enables a non-system administrator
+    - DELETE /api/system/admins/{userId} permanently deletes only safe orphan administrator users
+    - system administrator accounts are protected from lifecycle operations
+    - active accounts must be deactivated before permanent deletion
+    - account memberships must be removed before permanent deletion
+    - historical survey/run/presentation references block deletion
+    - system administration UI now exposes activate/deactivate/delete controls
+  invariants:
+    - deactivated administrators cannot authenticate or continue an existing session
+    - deleting an administrator can never cascade-delete surveys or invalidate historical ownership
+    - global admin_user deletion is only allowed after all account memberships are removed
+    - system administrators cannot delete or deactivate themselves through this API
+  verification:
+    - deactivate/reactivate/session revocation integration test added
+    - orphan deletion integration test added
+    - account-membership deletion guard test added
+    - active-user deletion guard test added
+    - system-admin protection test added
+    - historical-survey reference protection test added
+    - CI run 83 passed backend, frontend and end-to-end
+step_44:
+  changes:
+    - Flyway V9 removes survey.owner_id and the temporary account-assignment trigger
+    - survey ownership is exclusively survey_account_id
+    - legacy /api/admin/surveys and /api/admin/runs resources removed
+    - administrative survey/run/result/export/live/presentation access requires explicit accountId
+    - implicit requireSingleAccount compatibility methods removed from backend services
+    - historical created_by references on survey_run and presentation_token use ON DELETE SET NULL
+    - lifecycle history checks no longer depend on legacy owner_id
+    - backend API tests migrated to account-scoped routes
+  invariants:
+    - there is no implicit account selection in backend administrative business operations
+    - survey data is always owned by a survey account
+    - public participant APIs remain unchanged
+    - deletion of administrator users cannot delete survey data
+  verification:
+    - migration/domain compilation passes in intermediate CI
+    - account-scoped backend test migration completed
+    - CI run 116 passed backend, frontend and end-to-end
+step_45:
+  changes:
+    - cross-account authorization tests cover survey, run, result, export and live summary routes
+    - Playwright covers two independent accounts, shared membership, account selection and last-admin protection
+    - isolated Flyway smoke test migrates seeded V7 data through V8/V9 without data loss
+  verification:
+    - CI run 120 passed backend, frontend and end-to-end
+release_readiness:
+  status: READY_WITH_WARNINGS
+  required_gates:
+    - scope completion: pass
+    - functional acceptance: pass
+    - authorization and tenant isolation: pass
+    - migration: pass
+    - packaging/build: pass
+    - repository hygiene: pass
+    - current-state documentation: pass after readiness update
+  warnings:
+    - release version and tag are intentionally deferred to the release step
+    - production smoke test is pending after merge/deployment
+next_step: MERGE
+next_step_name: Merge PR #3 after human approval

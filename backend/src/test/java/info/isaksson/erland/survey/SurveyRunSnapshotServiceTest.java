@@ -35,7 +35,7 @@ class SurveyRunSnapshotServiceTest {
     void createsIndependentSnapshotOfQuestionsAndOptions() {
         Survey source = createSurvey();
 
-        SurveyRun run = snapshots.createDraft(source.ownerId, source.id, "Workshop 22 september");
+        SurveyRun run = snapshots.createDraft(source.createdByAdminUserId, source.surveyAccountId, source.id, "Workshop 22 september");
 
         assertNotNull(run.id);
         assertEquals("Workshop 22 september", run.title);
@@ -62,14 +62,16 @@ class SurveyRunSnapshotServiceTest {
     @TestTransaction
     void usesSurveyTitleWhenRunTitleIsBlank() {
         Survey source = createSurvey();
-        SurveyRun run = snapshots.createDraft(source.ownerId, source.id, "   ");
+        SurveyRun run = snapshots.createDraft(source.createdByAdminUserId, source.surveyAccountId, source.id, "   ");
         assertEquals("Arkitekturworkshop", run.title);
     }
 
     private Survey createSurvey() {
         Survey survey = new Survey();
         survey.id = UUID.randomUUID();
-        survey.ownerId = lookupTestAdminId();
+        UUID adminId = lookupTestAdminId();
+        survey.surveyAccountId = lookupTestAccountId(adminId);
+        survey.createdByAdminUserId = adminId;
         survey.title = "Arkitekturworkshop";
         survey.createdAt = Instant.now();
         survey.updatedAt = survey.createdAt;
@@ -115,6 +117,20 @@ class SurveyRunSnapshotServiceTest {
         surveys.persist(survey);
         surveys.flush();
         return survey;
+    }
+
+    private UUID lookupTestAccountId(UUID adminId) {
+        try (Connection c = dataSource.getConnection();
+             PreparedStatement ps = c.prepareStatement(
+                     "SELECT survey_account_id FROM survey_account_admin WHERE admin_user_id = ? ORDER BY created_at LIMIT 1")) {
+            ps.setObject(1, adminId);
+            try (ResultSet rs = ps.executeQuery()) {
+                assertTrue(rs.next(), "test admin must belong to a survey account");
+                return rs.getObject(1, UUID.class);
+            }
+        } catch (SQLException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     private UUID lookupTestAdminId() {

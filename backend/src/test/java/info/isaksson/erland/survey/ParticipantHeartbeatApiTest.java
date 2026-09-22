@@ -28,19 +28,20 @@ class ParticipantHeartbeatApiTest {
 
     private String openRun() {
         String cookie = login();
+        String accountId = accountId(cookie);
         String surveyId = given().cookie("survey_admin_session", cookie).contentType(ContentType.JSON)
                 .body("""
                     {"title":"Heartbeat","status":"DRAFT","questions":[
                       {"type":"YES_NO","text":"Redo?","required":false,"options":[]}
                     ]}
                     """)
-                .post("/api/admin/surveys").then().statusCode(201).extract().path("id");
+                .post("/api/admin/accounts/{accountId}/surveys", accountId).then().statusCode(201).extract().path("id");
         String runId = given().cookie("survey_admin_session", cookie).contentType(ContentType.JSON)
                 .body("{}")
-                .post("/api/admin/surveys/{surveyId}/runs", surveyId)
+                .post("/api/admin/accounts/{accountId}/surveys/{surveyId}/runs", accountId, surveyId)
                 .then().statusCode(201).extract().path("id");
         return given().cookie("survey_admin_session", cookie)
-                .post("/api/admin/runs/{runId}/open", runId)
+                .post("/api/admin/accounts/{accountId}/runs/{runId}/open", accountId, runId)
                 .then().statusCode(200).extract().path("publicId");
     }
 
@@ -81,4 +82,11 @@ class ParticipantHeartbeatApiTest {
                 .post("/api/public/runs/{publicId}/participants/current/heartbeat", publicId)
                 .then().statusCode(409);
     }
+    private String accountId(String cookie) {
+        return given().cookie("survey_admin_session", cookie)
+                .get("/api/admin/accounts")
+                .then().statusCode(200)
+                .extract().path("[0].id");
+    }
+
 }

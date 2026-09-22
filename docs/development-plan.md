@@ -86,6 +86,20 @@ Mål:
 - dokumentation
 - release candidate
 
+### M8 – Fleranvändarstöd och enkätkonton
+
+Mål:
+
+- enkätkonton som äger verksamhetsdata,
+- flera administratörer per konto,
+- systemadmin för kontoskapande,
+- account-scoped authorization,
+- konto-val efter login,
+- säker migrering från owner-baserad modell,
+- E2E för tenant-isolering.
+
+Se `docs/multi-user-architecture.md`.
+
 ---
 
 # 3. Detaljerad utvecklingsplan
@@ -1036,6 +1050,251 @@ Skapa första release candidate.
 
 ---
 
+
+## Steg 37 – Multi-user architecture & migration plan
+
+### Mål
+
+Fastställa målmodell, roller, behörighetsgränser och migreringsstrategi innan produktionskod ändras.
+
+### Leverabler
+
+- `docs/multi-user-architecture.md`
+- beslutad datamodell för `survey_account` och medlemskap
+- systemadmin-/enkätadminmodell
+- account-scoped API-princip
+- migreringsordning från `survey.owner_id`
+- tenant-isoleringskrav
+
+### Verifiering
+
+- endast systemadmin får skapa nya enkätkonton
+- ett enkätkonto måste alltid ha minst en administratör
+- enkäter ägs av konto, inte användare
+- migrering bevarar befintliga enkäter/resultat
+- nästa kodsteg är tillräckligt avgränsat
+
+### PR
+
+**PR: multi-user phase planning**
+
+---
+
+## Steg 38 – Survey account domain och datamigrering
+
+### Mål
+
+Införa kontoägande utan att ännu ändra hela UI-flödet.
+
+### Leverabler
+
+- `survey_account`
+- `survey_account_admin`
+- `admin_user.system_admin`
+- `admin_user.active`
+- `survey.survey_account_id`
+- `survey.created_by_admin_user_id`
+- Flyway-migrering av befintliga data till initialt konto
+- entities/repositories/tester
+
+### Verifiering
+
+- befintlig databas migrerar utan dataförlust
+- alla surveys har konto efter migrering
+- befintlig bootstrap-admin blir systemadmin
+- foreign keys/constraints fungerar
+
+### PR
+
+**PR: survey-account-domain**
+
+---
+
+## Steg 39 – Account-scoped authorization
+
+### Mål
+
+Flytta behörighetskontroll från användarägande till kontomedlemskap.
+
+### Leverabler
+
+- account membership service/context
+- account-scoped survey/run/result/export API
+- server-side tenantkontroll för varje administrativ resurs
+- borttagning av owner-baserad authorization
+
+### Verifiering
+
+- konto A kan aldrig läsa/ändra konto B
+- kända UUID:n ger inte cross-account access
+- manipulerat accountId nekas
+- publika deltagarflöden fungerar oförändrat
+
+### PR
+
+**PR: account-authorization**
+
+---
+
+## Steg 40 – Systemadmin API
+
+### Mål
+
+Låta endast systemadministratören skapa enkätkonton.
+
+### Leverabler
+
+- lista enkätkonton för systemadmin
+- skapa enkätkonto
+- skapa eller koppla första enkätadministratör i samma transaktion
+- systemadmin-authorization
+
+### Verifiering
+
+- vanlig enkätadmin får 403 på systemadmin-endpoints
+- konto kan inte skapas utan första admin
+- fel ger full rollback
+
+### PR
+
+**PR: system-admin**
+
+---
+
+## Steg 41 – Account admin management
+
+### Mål
+
+Låta enkätadministratörer hantera administratörer inom egna konton.
+
+### Leverabler
+
+- lista admins
+- lägga till ny eller befintlig admin
+- ta bort medlemskap
+- skydd mot att ta bort sista admin
+
+### Verifiering
+
+- endast medlemmar kan administrera kontot
+- samma användare kan vara admin i flera konton
+- sista admin kan inte tas bort
+
+### PR
+
+**PR: account-admin-management**
+
+---
+
+## Steg 42 – Kontoval och admin-UX
+
+### Mål
+
+Införa konto-val efter login och möjlighet att byta konto.
+
+### Leverabler
+
+- 0 konto: informationsvy
+- 1 konto: automatiskt val
+- 2+ konton: kontoväljare
+- tydlig aktuell kontoindikering
+- accountId i routes/API-anrop
+
+### Verifiering
+
+- flera browserflikar kan arbeta i olika konton
+- konto-byte läcker inte state/data mellan konton
+- befintligt adminflöde fungerar inom valt konto
+
+### PR
+
+**PR: account-selection-ui**
+
+---
+
+## Steg 43 – User lifecycle
+
+### Mål
+
+Hantera administratörer som inte längre är kopplade till enkätkonton.
+
+### Leverabler
+
+- aktiv/inaktiv status
+- systemadmin-vy för orphaned admins
+- inaktivering
+- återaktivering
+- säker borttagning endast när inga beroenden finns
+
+### Verifiering
+
+- inaktiv admin kan inte logga in
+- auditreferenser bryts inte
+- medlemskap och användarkonto hanteras separat
+
+### PR
+
+**PR: admin-user-lifecycle**
+
+---
+
+## Steg 44 – Remove legacy owner authorization bridge
+
+### Mål
+
+Slutföra övergången till kontoägande och ta bort den temporära kompatibilitetsbryggan mot användarägande.
+
+### Leverabler
+
+- ta bort `survey.owner_id` och triggern för implicit kontotilldelning
+- ta bort legacy `/api/admin/surveys` och `/api/admin/runs`
+- kräva explicit `accountId` för administrativa survey/run/result/export/live/presentation-anrop
+- ta bort implicit single-account-resolution i backend
+- bevara historiska created-by-referenser med `ON DELETE SET NULL`
+
+### Verifiering
+
+- alla backendtester använder account-scoped API
+- inga administrativa affärsoperationer gör implicit kontoval
+- publika deltagar-API:er fungerar oförändrat
+- CI helt grön
+
+### PR
+
+**PR: multi-user phase**
+
+---
+
+## Steg 45 – Multi-user E2E och security hardening
+
+### Mål
+
+Verifiera hela fleranvändarflödet och tenant-isoleringen.
+
+### Kritiska scenarier
+
+1. systemadmin skapar konto A + första admin
+2. systemadmin skapar konto B + första admin
+3. admin A kan endast se konto A
+4. admin A lägger till ytterligare admin
+5. admin med två konton får konto-val
+6. sista admin kan inte tas bort
+7. cross-account survey/run/result/export nekas
+8. migrerad 1.0-installation behåller data
+
+### Verifiering
+
+- backend integrationstester
+- Playwright E2E
+- CI helt grön
+- migrationssmoke-test mot kopia av tidigare schema
+
+### PR
+
+**PR: multi-user-e2e**
+
+---
+
 # 4. Initial backlog
 
 ## Epic A – Platform
@@ -1296,14 +1555,8 @@ Resultatet efter första implementationssteget bör vara ett repo där:
 
 # 11. Nästa steg
 
-Nästa CREATE-steg bör vara **initial implementation/bootstrap**.
+MVP/1.0-planen genom STEP-36 är genomförd.
 
-Det innebär att skapa den faktiska projektstrukturen med:
+Nästa utvecklingsfas är **M8 – Fleranvändarstöd och enkätkonton**.
 
-- React/TypeScript/Vite frontend,
-- Quarkus backend,
-- PostgreSQL,
-- Flyway,
-- Docker Compose,
-- GitHub Actions CI,
-- README och grundläggande utvecklingsinstruktioner.
+STEP-37 fastställer arkitektur och migreringsplan. Därefter är nästa konkreta kodsteg **STEP-38 – Survey account domain och datamigrering**.

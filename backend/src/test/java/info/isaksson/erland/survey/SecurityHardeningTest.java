@@ -42,7 +42,7 @@ class SecurityHardeningTest {
                 .header("Host", "localhost")
                 .contentType(ContentType.JSON)
                 .body("{}")
-                .when().post("/api/admin/surveys")
+                .when().post("/api/admin/accounts/00000000-0000-0000-0000-000000000000/surveys")
                 .then()
                 .statusCode(403)
                 .body("code", equalTo("CSRF_ORIGIN_REJECTED"));

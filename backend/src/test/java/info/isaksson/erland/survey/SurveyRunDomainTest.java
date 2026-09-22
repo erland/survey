@@ -27,7 +27,7 @@ class SurveyRunDomainTest {
         SurveyRun run = new SurveyRun();
         run.id = UUID.randomUUID();
         run.survey = survey;
-        run.createdBy = survey.ownerId;
+        run.createdBy = survey.createdByAdminUserId;
         run.publicId = "pub-" + UUID.randomUUID();
         run.joinCode = "AB12C";
         run.title = "Workshop run";
@@ -75,7 +75,9 @@ class SurveyRunDomainTest {
     private Survey createSurvey() {
         Survey survey = new Survey();
         survey.id = UUID.randomUUID();
-        survey.ownerId = lookupTestAdminId();
+        UUID adminId = lookupTestAdminId();
+        survey.surveyAccountId = lookupTestAccountId(adminId);
+        survey.createdByAdminUserId = adminId;
         survey.title = "Source survey";
         survey.createdAt = Instant.now();
         survey.updatedAt = survey.createdAt;
@@ -107,6 +109,20 @@ class SurveyRunDomainTest {
              ResultSet rs = ps.executeQuery()) {
             assertTrue(rs.next(), "test admin must be bootstrapped");
             return rs.getObject(1, UUID.class);
+        } catch (SQLException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    private UUID lookupTestAccountId(UUID adminId) {
+        try (Connection c = dataSource.getConnection();
+             PreparedStatement ps = c.prepareStatement(
+                     "SELECT survey_account_id FROM survey_account_admin WHERE admin_user_id = ? ORDER BY created_at LIMIT 1")) {
+            ps.setObject(1, adminId);
+            try (ResultSet rs = ps.executeQuery()) {
+                assertTrue(rs.next(), "test admin must belong to a survey account");
+                return rs.getObject(1, UUID.class);
+            }
         } catch (SQLException e) {
             throw new IllegalStateException(e);
         }

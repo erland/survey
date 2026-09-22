@@ -35,7 +35,7 @@ public class AuthService {
         }
         try (Connection connection = dataSource.getConnection();
              PreparedStatement statement = connection.prepareStatement(
-                     "SELECT id, username, password_hash FROM admin_user WHERE lower(username) = lower(?)")) {
+                     "SELECT id, username, password_hash FROM admin_user WHERE lower(username) = lower(?) AND active = TRUE")) {
             statement.setString(1, username.trim());
             try (ResultSet rs = statement.executeQuery()) {
                 if (!rs.next() || !passwordHasher.verify(password, rs.getString("password_hash"))) {
@@ -59,10 +59,11 @@ public class AuthService {
         }
         try (Connection connection = dataSource.getConnection();
              PreparedStatement statement = connection.prepareStatement("""
-                 SELECT u.id, u.username
+                 SELECT u.id, u.username, u.system_admin
                  FROM admin_session s
                  JOIN admin_user u ON u.id = s.admin_user_id
                  WHERE s.token_hash = ?
+                   AND u.active = TRUE
                    AND s.revoked_at IS NULL
                    AND s.expires_at > CURRENT_TIMESTAMP
                  """)) {
@@ -71,7 +72,7 @@ public class AuthService {
                 if (!rs.next()) {
                     return Optional.empty();
                 }
-                return Optional.of(new AdminPrincipal(rs.getObject("id", UUID.class), rs.getString("username")));
+                return Optional.of(new AdminPrincipal(rs.getObject("id", UUID.class), rs.getString("username"), rs.getBoolean("system_admin")));
             }
         } catch (SQLException e) {
             throw new IllegalStateException("Could not validate admin session", e);
@@ -121,5 +122,5 @@ public class AuthService {
     }
 
     public record LoginResult(UUID userId, String username, String token, Instant expiresAt) {}
-    public record AdminPrincipal(UUID userId, String username) {}
+    public record AdminPrincipal(UUID userId, String username, boolean systemAdmin) {}
 }

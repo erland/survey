@@ -21,6 +21,7 @@ class ResultAggregationApiTest {
     @Test
     void adminCanReadAggregatedResultsForAllQuestionTypes() {
         String cookie = login();
+        String accountId = accountId(cookie);
         String surveyId = given().cookie("survey_admin_session", cookie).contentType(ContentType.JSON)
                 .body("""
                     {"title":"Resultat","status":"DRAFT","questions":[
@@ -31,10 +32,10 @@ class ResultAggregationApiTest {
                       {"type":"TEXT","text":"Kommentar?","required":false,"options":[]}
                     ]}
                     """)
-                .post("/api/admin/surveys").then().statusCode(201).extract().path("id");
+                .post("/api/admin/accounts/{accountId}/surveys", accountId).then().statusCode(201).extract().path("id");
         String runId = given().cookie("survey_admin_session", cookie).contentType(ContentType.JSON).body("{}")
-                .post("/api/admin/surveys/{surveyId}/runs", surveyId).then().statusCode(201).extract().path("id");
-        String publicId = given().cookie("survey_admin_session", cookie).post("/api/admin/runs/{runId}/open", runId)
+                .post("/api/admin/accounts/{accountId}/surveys/{surveyId}/runs", accountId, surveyId).then().statusCode(201).extract().path("id");
+        String publicId = given().cookie("survey_admin_session", cookie).post("/api/admin/accounts/{accountId}/runs/{runId}/open", accountId, runId)
                 .then().statusCode(200).extract().path("publicId");
 
         String token1 = given().post("/api/public/runs/{publicId}/participants", publicId).then().statusCode(201).extract().path("participantToken");
@@ -55,7 +56,7 @@ class ResultAggregationApiTest {
         answer(publicId, token2, questions.get(4), "{\"textValue\":\"Tydligt\"}");
 
         given().cookie("survey_admin_session", cookie)
-                .get("/api/admin/runs/{runId}/results", runId)
+                .get("/api/admin/accounts/{accountId}/runs/{runId}/results", accountId, runId)
                 .then().statusCode(200)
                 .body("$", hasSize(5))
                 .body("[0].type", equalTo("YES_NO"))
@@ -71,7 +72,7 @@ class ResultAggregationApiTest {
                 .body("[4].texts", hasSize(2));
 
         given().cookie("survey_admin_session", cookie)
-                .get("/api/admin/runs/{runId}/results/{questionId}", runId, questions.get(0))
+                .get("/api/admin/accounts/{accountId}/runs/{runId}/results/{questionId}", accountId, runId, questions.get(0))
                 .then().statusCode(200)
                 .body("responseCount", equalTo(2));
     }
@@ -81,4 +82,11 @@ class ResultAggregationApiTest {
                 .put("/api/public/runs/{publicId}/participants/current/responses/{questionId}", publicId, questionId)
                 .then().statusCode(200);
     }
+    private String accountId(String cookie) {
+        return given().cookie("survey_admin_session", cookie)
+                .get("/api/admin/accounts")
+                .then().statusCode(200)
+                .extract().path("[0].id");
+    }
+
 }

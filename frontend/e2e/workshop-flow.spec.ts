@@ -2,12 +2,29 @@ import { expect, test, type BrowserContext, type Page } from '@playwright/test'
 
 const surveyTitle = `E2E workshop ${Date.now()}`
 
-async function login(page: Page) {
+async function signIn(page: Page, username: string, password: string) {
   await page.goto('/admin')
-  await page.getByLabel('Användarnamn').fill('admin')
-  await page.getByLabel('Lösenord').fill('change-me')
+  await page.getByLabel('Användarnamn').fill(username)
+  await page.getByLabel('Lösenord').fill(password)
   await page.getByRole('button', { name: 'Logga in' }).click()
+}
+
+async function login(page: Page) {
+  await signIn(page, 'admin', 'change-me')
   await expect(page.getByRole('heading', { name: 'Mina enkäter' })).toBeVisible()
+}
+
+async function logout(page: Page) {
+  await page.getByRole('button', { name: 'Logga ut' }).click()
+  await expect(page.getByRole('button', { name: 'Logga in' })).toBeVisible()
+}
+
+async function createSimpleSurvey(page: Page, title: string) {
+  await page.getByRole('button', { name: '+ Ny enkät' }).click()
+  await page.getByLabel('Titel').fill(title)
+  await page.getByRole('button', { name: 'Spara' }).click()
+  await expect(page.getByRole('heading', { name: 'Mina enkäter' })).toBeVisible()
+  await expect(page.locator('.survey-card').filter({ hasText: title })).toBeVisible()
 }
 
 async function createSurvey(page: Page) {
@@ -104,4 +121,86 @@ test('admin creates survey, participant answers, live result, presentation and e
   await page.locator('input[type="file"]').setInputFiles(definitionPath!)
   await expect(page.getByRole('heading', { name: surveyTitle })).toBeVisible()
   await expect(page.locator('.question-card')).toHaveCount(2)
+})
+
+
+test('multi-user accounts stay isolated and administrators can manage membership safely', async ({ page }) => {
+  const suffix = Date.now()
+  const accountA = `E2E account A ${suffix}`
+  const accountB = `E2E account B ${suffix}`
+  const adminA = `e2e-admin-a-${suffix}`
+  const adminB = `e2e-admin-b-${suffix}`
+  const sharedAdmin = `e2e-shared-${suffix}`
+  const passwordA = 'e2e-password-a-123'
+  const passwordB = 'e2e-password-b-123'
+  const sharedPassword = 'e2e-shared-password-123'
+  const surveyA = `Tenant A survey ${suffix}`
+  const surveyB = `Tenant B survey ${suffix}`
+
+  await login(page)
+  await page.getByRole('button', { name: 'Systemadministration' }).click()
+  await expect(page.getByRole('heading', { name: 'Enkätkonton', exact: true })).toBeVisible()
+
+  for (const [accountName, username, password] of [
+    [accountA, adminA, passwordA],
+    [accountB, adminB, passwordB],
+  ] as const) {
+    await page.getByLabel('Kontonamn').fill(accountName)
+    await page.getByLabel('Första administratör').fill(username)
+    await page.getByLabel('Initialt lösenord').fill(password)
+    await page.getByRole('button', { name: 'Skapa konto' }).click()
+    await expect(page.getByText(accountName, { exact: true })).toBeVisible()
+  }
+
+  await logout(page)
+
+  await signIn(page, adminA, passwordA)
+  await expect(page.locator('.account-name')).toHaveText(accountA)
+  await createSimpleSurvey(page, surveyA)
+
+  await page.getByRole('button', { name: 'Administratörer' }).click()
+  await page.getByLabel('Användarnamn').fill(sharedAdmin)
+  await page.getByLabel('Initialt lösenord').fill(sharedPassword)
+  await page.getByRole('button', { name: 'Lägg till' }).click()
+  await expect(page.locator('.admin-row').filter({ hasText: sharedAdmin })).toBeVisible()
+
+  const sharedRow = page.locator('.admin-row').filter({ hasText: sharedAdmin })
+  page.once('dialog', dialog => void dialog.accept())
+  await sharedRow.getByRole('button', { name: 'Ta bort' }).click()
+  await expect(sharedRow).toHaveCount(0)
+
+  const adminARow = page.locator('.admin-row').filter({ hasText: adminA })
+  page.once('dialog', dialog => void dialog.accept())
+  await adminARow.getByRole('button', { name: 'Ta bort' }).click()
+  await expect(page.getByRole('alert')).toContainText('sista administratören')
+
+  await page.getByLabel('Användarnamn').fill(sharedAdmin)
+  await page.getByRole('button', { name: 'Lägg till' }).click()
+  await expect(page.locator('.admin-row').filter({ hasText: sharedAdmin })).toBeVisible()
+  await logout(page)
+
+  await signIn(page, adminB, passwordB)
+  await expect(page.locator('.account-name')).toHaveText(accountB)
+  await createSimpleSurvey(page, surveyB)
+  await page.getByRole('button', { name: 'Administratörer' }).click()
+  await page.getByLabel('Användarnamn').fill(sharedAdmin)
+  await page.getByRole('button', { name: 'Lägg till' }).click()
+  await expect(page.locator('.admin-row').filter({ hasText: sharedAdmin })).toBeVisible()
+  await logout(page)
+
+  await signIn(page, sharedAdmin, sharedPassword)
+  await expect(page.getByRole('heading', { name: 'Välj enkätkonto' })).toBeVisible()
+  await expect(page.getByRole('button').filter({ hasText: accountA })).toBeVisible()
+  await expect(page.getByRole('button').filter({ hasText: accountB })).toBeVisible()
+
+  await page.getByRole('button').filter({ hasText: accountA }).click()
+  await expect(page.locator('.account-name')).toHaveText(accountA)
+  await expect(page.locator('.survey-card').filter({ hasText: surveyA })).toBeVisible()
+  await expect(page.locator('.survey-card').filter({ hasText: surveyB })).toHaveCount(0)
+
+  await page.getByRole('button', { name: 'Byt konto' }).click()
+  await page.getByRole('button').filter({ hasText: accountB }).click()
+  await expect(page.locator('.account-name')).toHaveText(accountB)
+  await expect(page.locator('.survey-card').filter({ hasText: surveyB })).toBeVisible()
+  await expect(page.locator('.survey-card').filter({ hasText: surveyA })).toHaveCount(0)
 })

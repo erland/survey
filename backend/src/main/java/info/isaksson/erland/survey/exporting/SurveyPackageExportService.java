@@ -1,6 +1,7 @@
 package info.isaksson.erland.survey.exporting;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import info.isaksson.erland.survey.auth.AccountAccessService;
 import info.isaksson.erland.survey.domain.SurveyRun;
 import info.isaksson.erland.survey.domain.SurveyRunRepository;
 import info.isaksson.erland.survey.surveyapi.ApiException;
@@ -28,16 +29,15 @@ public class SurveyPackageExportService {
     @Inject RunResultExportService resultExportService;
     @Inject RunResultCsvExportService csvExportService;
     @Inject SurveyRunRepository runRepository;
+    @Inject AccountAccessService accountAccess;
     @Inject ObjectMapper objectMapper;
 
     @ConfigProperty(name = "quarkus.application.version", defaultValue = "unknown")
     String applicationVersion;
 
-    public byte[] export(UUID ownerId, UUID runId) {
-        ResultExportDocument resultDocument = resultExportService.export(ownerId, runId);
-        SurveyRun run = runRepository.find("id = ?1 and createdBy = ?2", runId, ownerId)
-                .firstResultOptional()
-                .orElseThrow(() -> new ApiException(404, "RUN_NOT_FOUND", "Enkätgenomförandet kunde inte hittas."));
+    public byte[] export(UUID userId, UUID accountId, UUID runId) {
+        ResultExportDocument resultDocument = resultExportService.export(userId, accountId, runId);
+        SurveyRun run = accountAccess.requireRun(userId, accountId, runId);
 
         SurveyDefinitionExport surveyDocument = snapshotDefinition(resultDocument);
         RunDocument runDocument = new RunDocument(
@@ -71,7 +71,7 @@ public class SurveyPackageExportService {
             addJson(zip, "survey.json", surveyDocument);
             addJson(zip, "run.json", runDocument);
             addJson(zip, "responses.json", resultDocument);
-            addBytes(zip, "responses.csv", csvExportService.export(ownerId, runId));
+            addBytes(zip, "responses.csv", csvExportService.export(userId, accountId, runId));
             zip.finish();
             return output.toByteArray();
         } catch (IOException e) {

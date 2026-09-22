@@ -20,6 +20,7 @@ class SurveyApiTest {
     @Test
     void surveyCrudAndCopyWork() {
         String cookie = login();
+        String accountId = accountId(cookie);
         String body = """
                 {
                   "title":"Workshop",
@@ -35,50 +36,58 @@ class SurveyApiTest {
                 """;
 
         String id = given().cookie("survey_admin_session", cookie).contentType(ContentType.JSON).body(body)
-                .post("/api/admin/surveys").then().statusCode(201)
+                .post("/api/admin/accounts/{accountId}/surveys", accountId).then().statusCode(201)
                 .body("title", equalTo("Workshop"))
                 .body("questions", hasSize(3))
                 .body("questions[1].options", hasSize(2))
                 .extract().path("id");
 
         given().cookie("survey_admin_session", cookie)
-                .get("/api/admin/surveys/" + id).then().statusCode(200)
+                .get("/api/admin/accounts/" + accountId + "/surveys/" + id).then().statusCode(200)
                 .body("questions[2].scaleMin", equalTo(1))
                 .body("questions[2].scaleMax", equalTo(5));
 
         given().cookie("survey_admin_session", cookie)
-                .get("/api/admin/surveys").then().statusCode(200)
+                .get("/api/admin/accounts/{accountId}/surveys", accountId).then().statusCode(200)
                 .body("id", hasItem(id));
 
         String copyId = given().cookie("survey_admin_session", cookie)
-                .post("/api/admin/surveys/" + id + "/copy").then().statusCode(201)
+                .post("/api/admin/accounts/" + accountId + "/surveys/" + id + "/copy").then().statusCode(201)
                 .body("title", equalTo("Workshop (kopia)"))
                 .body("questions", hasSize(3))
                 .extract().path("id");
 
-        given().cookie("survey_admin_session", cookie).delete("/api/admin/surveys/" + id)
+        given().cookie("survey_admin_session", cookie).delete("/api/admin/accounts/" + accountId + "/surveys/" + id)
                 .then().statusCode(204);
-        given().cookie("survey_admin_session", cookie).get("/api/admin/surveys/" + id)
+        given().cookie("survey_admin_session", cookie).get("/api/admin/accounts/" + accountId + "/surveys/" + id)
                 .then().statusCode(404).body("code", equalTo("SURVEY_NOT_FOUND"));
-        given().cookie("survey_admin_session", cookie).get("/api/admin/surveys/" + copyId)
+        given().cookie("survey_admin_session", cookie).get("/api/admin/accounts/" + accountId + "/surveys/" + copyId)
                 .then().statusCode(200);
     }
 
     @Test
     void validationRejectsInvalidChoiceQuestion() {
         String cookie = login();
+        String accountId = accountId(cookie);
         given().cookie("survey_admin_session", cookie).contentType(ContentType.JSON)
                 .body("""
                 {"title":"Fel","questions":[{"type":"SINGLE_CHOICE","text":"Välj","required":true,
                 "options":[{"value":"a","label":"Bara ett"}]}]}
                 """)
-                .post("/api/admin/surveys")
+                .post("/api/admin/accounts/{accountId}/surveys", accountId)
                 .then().statusCode(400).body("code", equalTo("INVALID_QUESTION"));
     }
 
     @Test
     void surveysRequireAdminAuthentication() {
-        given().get("/api/admin/surveys").then().statusCode(401)
+        given().get("/api/admin/accounts/00000000-0000-0000-0000-000000000000/surveys").then().statusCode(401)
                 .body("code", equalTo("ADMIN_AUTH_REQUIRED"));
     }
+    private String accountId(String cookie) {
+        return given().cookie("survey_admin_session", cookie)
+                .get("/api/admin/accounts")
+                .then().statusCode(200)
+                .extract().path("[0].id");
+    }
+
 }

@@ -1,5 +1,6 @@
 package info.isaksson.erland.survey.runapi;
 
+import info.isaksson.erland.survey.auth.AccountAccessService;
 import info.isaksson.erland.survey.domain.SurveyRun;
 import info.isaksson.erland.survey.domain.SurveyRunRepository;
 import info.isaksson.erland.survey.run.SurveyRunLifecycleService;
@@ -18,34 +19,34 @@ import static info.isaksson.erland.survey.runapi.SurveyRunDtos.RunView;
 @ApplicationScoped
 public class SurveyRunAdminService {
     @Inject SurveyRunRepository runRepository;
+    @Inject AccountAccessService accountAccess;
     @Inject SurveyRunSnapshotService snapshotService;
     @Inject SurveyRunLifecycleService lifecycleService;
 
     @Transactional
-    public List<RunView> list(UUID ownerId, UUID surveyId) {
-        return runRepository.find("survey.id = ?1 and createdBy = ?2 order by createdAt desc", surveyId, ownerId)
+    public List<RunView> list(UUID userId, UUID accountId, UUID surveyId) {
+        accountAccess.requireSurvey(userId, accountId, surveyId);
+        return runRepository.find("survey.id = ?1 and survey.surveyAccountId = ?2 order by createdAt desc", surveyId, accountId)
                 .list().stream().map(this::map).toList();
     }
 
     @Transactional
-    public RunView get(UUID ownerId, UUID runId) {
-        return map(ownedRun(ownerId, runId));
+    public RunView get(UUID userId, UUID accountId, UUID runId) {
+        return map(accountRun(userId, accountId, runId));
     }
 
     @Transactional
-    public RunView create(UUID ownerId, UUID surveyId, String title) {
-        return map(snapshotService.createDraft(ownerId, surveyId, title));
+    public RunView create(UUID userId, UUID accountId, UUID surveyId, String title) {
+        return map(snapshotService.createDraft(userId, accountId, surveyId, title));
     }
 
     @Transactional
-    public RunView open(UUID ownerId, UUID runId) {
-        return map(lifecycleService.openNow(ownerId, runId));
+    public RunView open(UUID userId, UUID accountId, UUID runId) {
+        return map(lifecycleService.openNow(userId, accountId, runId));
     }
 
-    private SurveyRun ownedRun(UUID ownerId, UUID runId) {
-        SurveyRun run = runRepository.find("id = ?1 and createdBy = ?2", runId, ownerId)
-                .firstResultOptional()
-                .orElseThrow(() -> new ApiException(404, "RUN_NOT_FOUND", "Enkätgenomförandet kunde inte hittas."));
+    private SurveyRun accountRun(UUID userId, UUID accountId, UUID runId) {
+        SurveyRun run = accountAccess.requireRun(userId, accountId, runId);
         lifecycleService.synchronize(run.id, Instant.now());
         return run;
     }

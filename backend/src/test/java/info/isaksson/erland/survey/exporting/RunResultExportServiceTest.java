@@ -22,7 +22,7 @@ class RunResultExportServiceTest {
     void exportsPortableAnonymousResultDocument() {
         UUID ownerId = lookupTestAdminId();
         Survey survey = new Survey();
-        survey.id = UUID.randomUUID(); survey.ownerId = ownerId; survey.title = "Mall"; survey.status = SurveyStatus.DRAFT;
+        survey.id = UUID.randomUUID(); survey.surveyAccountId = lookupTestAccountId(ownerId); survey.createdByAdminUserId = ownerId; survey.title = "Mall"; survey.status = SurveyStatus.DRAFT;
         survey.createdAt = Instant.now(); survey.updatedAt = Instant.now(); survey.persist();
 
         SurveyRun run = new SurveyRun();
@@ -43,7 +43,7 @@ class RunResultExportServiceTest {
         value.id = UUID.randomUUID(); value.response = response; value.textValue = "Svar"; value.persist();
         response.values.add(value);
 
-        var exported = service.export(ownerId, run.id);
+        var exported = service.export(ownerId, survey.surveyAccountId, run.id);
 
         assertEquals("survey-result-export", exported.format());
         assertEquals(1, exported.version());
@@ -52,6 +52,20 @@ class RunResultExportServiceTest {
         assertEquals("Svar", exported.responses().getFirst().answers().getFirst().textValue());
         assertFalse(exported.responses().getFirst().participantId().contains(p.id.toString()));
     }
+    private UUID lookupTestAccountId(UUID adminId) {
+        try (var connection = dataSource.getConnection();
+             var statement = connection.prepareStatement(
+                     "SELECT survey_account_id FROM survey_account_admin WHERE admin_user_id = ? ORDER BY created_at LIMIT 1")) {
+            statement.setObject(1, adminId);
+            try (var rs = statement.executeQuery()) {
+                assertTrue(rs.next(), "test admin must belong to a survey account");
+                return rs.getObject(1, UUID.class);
+            }
+        } catch (java.sql.SQLException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
     private UUID lookupTestAdminId() {
         try (var connection = dataSource.getConnection();
              var statement = connection.prepareStatement("SELECT id FROM admin_user WHERE username = 'test-admin'");

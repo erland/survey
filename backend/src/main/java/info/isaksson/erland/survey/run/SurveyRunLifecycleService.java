@@ -1,5 +1,6 @@
 package info.isaksson.erland.survey.run;
 
+import info.isaksson.erland.survey.auth.AccountAccessService;
 import info.isaksson.erland.survey.domain.SurveyRun;
 import info.isaksson.erland.survey.domain.SurveyRunRepository;
 import info.isaksson.erland.survey.domain.SurveyRunStatus;
@@ -15,15 +16,16 @@ import java.util.UUID;
 public class SurveyRunLifecycleService {
 
     @Inject SurveyRunRepository runRepository;
+    @Inject AccountAccessService accountAccess;
 
     @Transactional
-    public SurveyRun schedule(UUID ownerId, UUID runId, Instant opensAt, Instant closesAt) {
+    public SurveyRun schedule(UUID userId, UUID accountId, UUID runId, Instant opensAt, Instant closesAt) {
         if (opensAt == null) {
             throw new ApiException(400, "INVALID_RUN_SCHEDULE", "Öppningstid måste anges för ett schemalagt genomförande.");
         }
         validateWindow(opensAt, closesAt);
 
-        SurveyRun run = ownedRun(ownerId, runId);
+        SurveyRun run = accountAccess.requireRun(userId, accountId, runId);
         requireNotClosed(run);
 
         run.opensAt = opensAt;
@@ -36,8 +38,8 @@ public class SurveyRunLifecycleService {
     }
 
     @Transactional
-    public SurveyRun openNow(UUID ownerId, UUID runId) {
-        SurveyRun run = ownedRun(ownerId, runId);
+    public SurveyRun openNow(UUID userId, UUID accountId, UUID runId) {
+        SurveyRun run = accountAccess.requireRun(userId, accountId, runId);
         requireNotClosed(run);
 
         Instant now = Instant.now();
@@ -52,8 +54,8 @@ public class SurveyRunLifecycleService {
     }
 
     @Transactional
-    public SurveyRun close(UUID ownerId, UUID runId) {
-        SurveyRun run = ownedRun(ownerId, runId);
+    public SurveyRun close(UUID userId, UUID accountId, UUID runId) {
+        SurveyRun run = accountAccess.requireRun(userId, accountId, runId);
         if (run.status == SurveyRunStatus.CLOSED) {
             return run;
         }
@@ -104,12 +106,6 @@ public class SurveyRunLifecycleService {
                 run.openedAt = now;
             }
         }
-    }
-
-    private SurveyRun ownedRun(UUID ownerId, UUID runId) {
-        return runRepository.find("id = ?1 and createdBy = ?2", runId, ownerId)
-                .firstResultOptional()
-                .orElseThrow(() -> new ApiException(404, "RUN_NOT_FOUND", "Enkätgenomförandet kunde inte hittas."));
     }
 
     private void requireNotClosed(SurveyRun run) {

@@ -22,6 +22,7 @@ class PresentationTokenApiTest {
     @Test
     void readOnlyPresentationTokenWorksWithoutAdminCookieAndCanBeRevoked() {
         String cookie = login();
+        String accountId = accountId(cookie);
         String surveyId = given().cookie("survey_admin_session", cookie).contentType(ContentType.JSON)
                 .body("""
                     {"title":"Presentation","status":"DRAFT","questions":[
@@ -29,14 +30,14 @@ class PresentationTokenApiTest {
                       {"type":"TEXT","text":"Kommentar?","required":false,"options":[]}
                     ]}
                     """)
-                .post("/api/admin/surveys").then().statusCode(201).extract().path("id");
+                .post("/api/admin/accounts/{accountId}/surveys", accountId).then().statusCode(201).extract().path("id");
         String runId = given().cookie("survey_admin_session", cookie).contentType(ContentType.JSON).body("{}")
-                .post("/api/admin/surveys/{surveyId}/runs", surveyId).then().statusCode(201).extract().path("id");
-        given().cookie("survey_admin_session", cookie).post("/api/admin/runs/{runId}/open", runId)
+                .post("/api/admin/accounts/{accountId}/surveys/{surveyId}/runs", accountId, surveyId).then().statusCode(201).extract().path("id");
+        given().cookie("survey_admin_session", cookie).post("/api/admin/accounts/{accountId}/runs/{runId}/open", accountId, runId)
                 .then().statusCode(200);
 
         var created = given().cookie("survey_admin_session", cookie)
-                .post("/api/admin/runs/{runId}/presentation-tokens", runId)
+                .post("/api/admin/accounts/{accountId}/runs/{runId}/presentation-tokens", accountId, runId)
                 .then().statusCode(200)
                 .body("token", notNullValue())
                 .body("presentationPath", notNullValue())
@@ -50,15 +51,22 @@ class PresentationTokenApiTest {
                 .body("results[1].texts", empty());
 
         // The same token is intentionally not an admin credential.
-        given().get("/api/admin/runs/{runId}", runId)
+        given().get("/api/admin/accounts/{accountId}/runs/{runId}", accountId, runId)
                 .then().statusCode(401);
 
         given().cookie("survey_admin_session", cookie)
-                .delete("/api/admin/runs/{runId}/presentation-tokens/{tokenId}", runId, tokenId)
+                .delete("/api/admin/accounts/{accountId}/runs/{runId}/presentation-tokens/{tokenId}", accountId, runId, tokenId)
                 .then().statusCode(204);
 
         given().get("/api/presentation/{token}", token)
                 .then().statusCode(401)
                 .body("code", equalTo("PRESENTATION_TOKEN_INVALID"));
     }
+    private String accountId(String cookie) {
+        return given().cookie("survey_admin_session", cookie)
+                .get("/api/admin/accounts")
+                .then().statusCode(200)
+                .extract().path("[0].id");
+    }
+
 }

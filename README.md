@@ -4,9 +4,11 @@ En enkel enkättjänst primärt för liveanvändning i workshops, med anonymt de
 
 ## Status
 
-Aktuell version är **0.1.0-rc.1**, den första release candidate-versionen. Huvudflödet för administration, workshopstart, anonymt deltagande, autosave/submit, live-resultat, presentation och export är implementerat och täcks av CI/E2E.
+Aktuell paketerad version är **0.1.0-rc.1**. Efter denna RC har fleranvändarstöd införts på utvecklingsbranchen: enkäter ägs av enkätkonton, systemadmin skapar nya konton och enkätadministratörer får endast arbeta i de konton de är kopplade till. Administratörer kan tillhöra flera konton och väljer då aktivt konto.
 
-Release notes finns i `docs/release-notes-0.1.0-rc.1.md` och den slutliga RC-checklistan i `docs/rc-checklist-0.1.0-rc.1.md`.
+Huvudflödet för administration, workshopstart, anonymt deltagande, autosave/submit, live-resultat, presentation, export och fleranvändarisolering täcks av CI/E2E. Versionshöjning och release-tag görs i ett separat release-steg.
+
+Historiska release notes för 0.1.0-rc.1 finns i `docs/release-notes-0.1.0-rc.1.md`.
 
 ## Förutsättningar
 
@@ -107,6 +109,28 @@ GET  /api/admin/ping   # exempel på skyddad admin-endpoint
 
 Lösenord lagras som PBKDF2-SHA256-hashar. Sessions-token skickas som `HttpOnly`-cookie och lagras bara hashad i databasen. I produktion ska `ADMIN_COOKIE_SECURE=true` användas tillsammans med HTTPS.
 
+## Fleranvändarstöd och enkätkonton
+
+Bootstrap-användaren är systemadministratör. Endast systemadmin kan skapa nya enkätkonton. När ett konto skapas måste det samtidigt få sin första enkätadministratör.
+
+En enkätadministratör:
+- ser endast de enkätkonton där användaren har medlemskap,
+- kan lägga till eller ta bort administratörer inom sina egna konton,
+- kan inte ta bort den sista administratören från ett konto,
+- kan tillhöra flera konton och får då en explicit kontoväljare.
+
+Administrativa API:er är alltid kontoavgränsade. Exempel:
+
+```text
+GET  /api/admin/accounts
+GET  /api/admin/accounts/{accountId}/surveys
+POST /api/admin/accounts/{accountId}/surveys
+GET  /api/admin/accounts/{accountId}/runs/{runId}
+GET  /api/admin/accounts/{accountId}/runs/{runId}/results
+```
+
+Systemadministration ligger under `/api/system/**`.
+
 ## Dokumentation
 
 - `docs/functional-specification.md`
@@ -129,9 +153,9 @@ GitHub Actions workflow `.github/workflows/ci.yml` verifies backend and frontend
 The frontend workflow currently uses `npm install` because the bootstrap environment could not reach the npm registry and therefore could not generate `package-lock.json`. Generate and commit the lock file as soon as dependency resolution is available, then switch CI to `npm ci`.
 
 
-## Survey REST API (STEP-06)
+## Survey REST API
 
-Adminskyddade endpoints finns under `/api/admin/surveys` för listning, hämtning, skapande, uppdatering, radering och kopiering av enkätmallar. API:t validerar frågetyper, skalor och svarsalternativ och begränsar åtkomst till inloggad administratörs egna enkäter.
+Administrativa survey-endpoints är kontoavgränsade under `/api/admin/accounts/{accountId}/surveys` för listning, hämtning, skapande, uppdatering, radering, kopiering, import och export. Backend verifierar medlemskap i angivet enkätkonto för varje administrativ resurs; ett känt UUID från ett annat konto ger inte åtkomst.
 
 
 ## Admin UI och Survey editor
@@ -214,8 +238,8 @@ Detta är ett praktiskt närvaromått för workshopvyn, inte ett exakt antal fys
 Admin-API:t kan nu hämta aggregerade resultat för ett helt genomförande eller en enskild fråga:
 
 ```text
-GET /api/admin/runs/{runId}/results
-GET /api/admin/runs/{runId}/results/{questionId}
+GET /api/admin/accounts/{accountId}/runs/{runId}/results
+GET /api/admin/accounts/{accountId}/runs/{runId}/results/{questionId}
 ```
 
 Aggregeringen sker server-side och stödjer ja/nej, enkelval, flerval, skala och fritext. Resultaten bygger på sparade svar från både aktiva och inskickade deltagarsessioner; `EXPIRED`-sessioner räknas inte. Det gör att samma API kan användas för live-resultat i workshopläge. `responseCount` räknar deltagarsessioner som faktiskt har ett svar på frågan, medan flerval räknar varje valt alternativ separat.
@@ -232,7 +256,7 @@ I STEP-20 uppdateras summeringen med enkel polling var femte sekund. Nästa steg
 
 ## Liveuppdatering (SSE)
 
-Adminvyn ansluter till `GET /api/admin/runs/{runId}/events` med Server-Sent Events. Backend skickar händelser efter lyckad databascommit för deltagarstart, aktivitet, svarsändring och submit. Klienten hämtar därefter aktuell summary från servern. `EventSource` återansluter automatiskt; om SSE tillfälligt felar aktiveras 5-sekunders polling som fallback tills anslutningen är tillbaka.
+Adminvyn ansluter till `GET /api/admin/accounts/{accountId}/runs/{runId}/events` med Server-Sent Events. Backend skickar händelser efter lyckad databascommit för deltagarstart, aktivitet, svarsändring och submit. Klienten hämtar därefter aktuell summary från servern. `EventSource` återansluter automatiskt; om SSE tillfälligt felar aktiveras 5-sekunders polling som fallback tills anslutningen är tillbaka.
 
 I en reverse proxy måste SSE-responsen få strömmas utan aggressiv buffering/timeouts. Detta ska verifieras i deployment-steget.
 
@@ -255,13 +279,13 @@ An administrator can open `/present/{runId}` in a separate window from the run s
 Presentationsläget använder nu en separat, tidsbegränsad read-only-token i stället för administratörens session. Administratören skapar token via:
 
 ```text
-POST /api/admin/runs/{runId}/presentation-tokens
+POST /api/admin/accounts/{accountId}/runs/{runId}/presentation-tokens
 ```
 
 Servern lagrar endast SHA-256-hash av tokenen. Standardgiltigheten är 12 timmar och kan styras med `PRESENTATION_TOKEN_HOURS`. Token kan återkallas via:
 
 ```text
-DELETE /api/admin/runs/{runId}/presentation-tokens/{tokenId}
+DELETE /api/admin/accounts/{accountId}/runs/{runId}/presentation-tokens/{tokenId}
 ```
 
 Projektorvyn använder därefter:
@@ -278,7 +302,7 @@ Presentationstoken ger ingen åtkomst till `/api/admin/**`. Presentation API ret
 En sparad enkätmall kan exporteras från admineditorn med **Exportera JSON**. Backend-endpointen är:
 
 ```text
-GET /api/admin/surveys/{surveyId}/export
+GET /api/admin/accounts/{accountId}/surveys/{surveyId}/export
 ```
 
 Exporten använder det portabla formatet `survey-definition` version `1` och returneras som en JSON-attachment. Den innehåller titel, beskrivning, frågor, required-inställningar, skaldefinitioner och svarsalternativ. Interna UUID:n, ägare, survey-status, timestamps, genomföranden och svar ingår inte. Formatet dokumenteras i `docs/survey-definition-format.md`.
@@ -292,7 +316,7 @@ Administratören kan importera ett tidigare exporterat `survey-definition` versi
 Administratören kan exportera ett genomförandes snapshot och insamlade svar via:
 
 ```text
-GET /api/admin/runs/{runId}/export/json
+GET /api/admin/accounts/{accountId}/runs/{runId}/export/json
 ```
 
 Formatet är `survey-result-export` version 1. Deltagartoken, token-hash och interna deltagar-ID:n exporteras inte. Se `docs/survey-result-export-format.md`.
@@ -303,7 +327,7 @@ Formatet är `survey-result-export` version 1. Deltagartoken, token-hash och int
 Administratören kan exportera samma resultatunderlag som CSV via:
 
 ```text
-GET /api/admin/runs/{runId}/export/csv
+GET /api/admin/accounts/{accountId}/runs/{runId}/export/csv
 ```
 
 CSV-filen använder UTF-8 med BOM för smidig öppning i Excel, en rad per anonym deltagarsession och en kolumn per fråga. Flerval lagras med semikolon inom cellen. Alla fält citeras så kommatecken, citationstecken och flerradig fritext bevaras korrekt. Formatet dokumenteras i `docs/survey-result-csv-format.md`.
