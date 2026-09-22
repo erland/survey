@@ -21,7 +21,7 @@ class SystemAdminApiTest {
     @Test
     void systemAdminCreatesAccountAndFirstAdministratorAtomically() throws Exception {
         String systemCookie = login("test-admin", "test-password-123");
-        String username = "account-admin-" + UUID.randomUUID();
+        String username = "account-admin-" + UUID.randomUUID() + "@example.test";
         String accountName = "Account " + UUID.randomUUID();
 
         String accountId = given()
@@ -47,6 +47,48 @@ class SystemAdminApiTest {
                 .cookie("survey_admin_session", adminCookie)
                 .get("/api/admin/accounts/" + accountId + "/surveys")
                 .then().statusCode(200);
+    }
+
+    @Test
+    void newAdministratorAcceptsEightCharacterPassword() throws Exception {
+        String systemCookie = login("test-admin", "test-password-123");
+        String email = "eight-" + UUID.randomUUID() + "@example.test";
+        String accountName = "Eight chars " + UUID.randomUUID();
+
+        given()
+                .cookie("survey_admin_session", systemCookie)
+                .contentType(ContentType.JSON)
+                .body("""
+                        {
+                          "accountName":"%s",
+                          "adminUsername":"%s",
+                          "adminPassword":"12345678"
+                        }
+                        """.formatted(accountName, email))
+                .post("/api/system/accounts")
+                .then().statusCode(201)
+                .body("adminUsername", equalTo(email));
+
+        login(email, "12345678");
+    }
+
+    @Test
+    void newAdministratorRequiresEmailButBootstrapNameRemainsValid() {
+        String systemCookie = login("test-admin", "test-password-123");
+
+        given()
+                .cookie("survey_admin_session", systemCookie)
+                .contentType(ContentType.JSON)
+                .body("""
+                        {
+                          "accountName":"Invalid email",
+                          "adminUsername":"not-an-email",
+                          "adminPassword":"12345678"
+                        }
+                        """)
+                .post("/api/system/accounts")
+                .then().statusCode(400)
+                .body("code", equalTo("INVALID_ADMIN_EMAIL"));
     }
 
     @Test
@@ -81,7 +123,7 @@ class SystemAdminApiTest {
     @Test
     void failedAccountCreationRollsBackNewAdministrator() throws Exception {
         String systemCookie = login("test-admin", "test-password-123");
-        String username = "rollback-admin-" + UUID.randomUUID();
+        String username = "rollback-admin-" + UUID.randomUUID() + "@example.test";
         String accountName = "Rollback " + UUID.randomUUID();
 
         given()
