@@ -21,6 +21,7 @@ class SurveyExportApiTest {
     @Test
     void exportsPortableVersionedSurveyDefinition() {
         String cookie = login();
+        String accountId = accountId(cookie);
         String surveyId = given().cookie("survey_admin_session", cookie).contentType(ContentType.JSON)
                 .body("""
                 {
@@ -36,11 +37,11 @@ class SurveyExportApiTest {
                   ]
                 }
                 """)
-                .post("/api/admin/surveys").then().statusCode(201)
+                .post("/api/admin/accounts/{accountId}/surveys", accountId).then().statusCode(201)
                 .extract().path("id");
 
         given().cookie("survey_admin_session", cookie)
-                .get("/api/admin/surveys/" + surveyId + "/export")
+                .get("/api/admin/accounts/" + accountId + "/surveys/" + surveyId + "/export")
                 .then().statusCode(200)
                 .contentType(ContentType.JSON)
                 .header("Content-Disposition", equalTo("attachment; filename=\"survey-definition-" + surveyId + ".json\""))
@@ -58,8 +59,15 @@ class SurveyExportApiTest {
 
     @Test
     void exportRequiresAdminAuthentication() {
-        given().get("/api/admin/surveys/00000000-0000-0000-0000-000000000000/export")
+        given().get("/api/admin/accounts/00000000-0000-0000-0000-000000000000/surveys/00000000-0000-0000-0000-000000000000/export")
                 .then().statusCode(401)
                 .body("code", equalTo("ADMIN_AUTH_REQUIRED"));
     }
+    private String accountId(String cookie) {
+        return given().cookie("survey_admin_session", cookie)
+                .get("/api/admin/accounts")
+                .then().statusCode(200)
+                .extract().path("[0].id");
+    }
+
 }
