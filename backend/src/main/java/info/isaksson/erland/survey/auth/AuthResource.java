@@ -52,6 +52,20 @@ public class AuthResource {
     }
 
     @POST
+    @Path("/change-password")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response changePassword(
+            @CookieParam(AdminAuthFilter.COOKIE_NAME) String token,
+            ChangePasswordRequest request
+    ) {
+        if (request == null) {
+            throw new ApiException(400, "INVALID_PASSWORD_CHANGE", "Lösenordsbytet saknar uppgifter.");
+        }
+        authService.changePassword(token, request.currentPassword(), request.newPassword());
+        return Response.noContent().build();
+    }
+
+    @POST
     @Path("/logout")
     public Response logout(@CookieParam(AdminAuthFilter.COOKIE_NAME) String token) {
         authService.logout(token);
@@ -98,4 +112,5 @@ public class AuthResource {
 
     public record LoginRequest(String username, String password) {}
     public record PasswordTokenRequest(String token, String password) {}
+    public record ChangePasswordRequest(String currentPassword, String newPassword) {}
 }
