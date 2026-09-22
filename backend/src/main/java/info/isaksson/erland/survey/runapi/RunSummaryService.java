@@ -1,5 +1,6 @@
 package info.isaksson.erland.survey.runapi;
 
+import info.isaksson.erland.survey.auth.AccountAccessService;
 import info.isaksson.erland.survey.domain.ParticipantSessionRepository;
 import info.isaksson.erland.survey.domain.ParticipantSessionStatus;
 import info.isaksson.erland.survey.domain.SurveyRun;
@@ -20,13 +21,17 @@ public class RunSummaryService {
     static final Duration ACTIVE_WINDOW = Duration.ofSeconds(90);
 
     @Inject SurveyRunRepository runRepository;
+    @Inject AccountAccessService accountAccess;
     @Inject ParticipantSessionRepository participantSessionRepository;
 
     @Transactional
-    public LiveSummary get(UUID ownerId, UUID runId, Instant now) {
-        SurveyRun run = runRepository.find("id = ?1 and createdBy = ?2", runId, ownerId)
-                .firstResultOptional()
-                .orElseThrow(() -> new ApiException(404, "RUN_NOT_FOUND", "Enkätgenomförandet kunde inte hittas."));
+    public LiveSummary get(UUID userId, UUID runId, Instant now) {
+        return get(userId, accountAccess.requireSingleAccount(userId), runId, now);
+    }
+
+    @Transactional
+    public LiveSummary get(UUID userId, UUID accountId, UUID runId, Instant now) {
+        SurveyRun run = accountAccess.requireRun(userId, accountId, runId);
         return getForRun(run.id, now);
     }
 
