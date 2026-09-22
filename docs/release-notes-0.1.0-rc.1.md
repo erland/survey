@@ -55,5 +55,8 @@ RC ska inte taggas förrän samtliga CI-jobb är gröna på den slutliga RC-comm
 1. Verifiera att CI på `main` är grön.
 2. Skapa taggen `v0.1.0-rc.1`.
 3. Skapa GitHub prerelease med denna release note som grund.
-4. Bygg och starta produktionsprofilen i målmiljön.
-5. Kör smoke test enligt RC-checklistan.
+4. Verifiera att release-workflowen publicerar:
+   - `ghcr.io/erland/survey-backend:0.1.0-rc.1`
+   - `ghcr.io/erland/survey-frontend:0.1.0-rc.1`
+5. Bygg eller dra images och starta produktionsprofilen i målmiljön.
+6. Kör smoke test enligt RC-checklistan.
