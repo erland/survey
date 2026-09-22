@@ -189,8 +189,8 @@ function SystemAccountPanel({ onDone, onChanged }: { onDone:()=>void; onChanged:
     try{
       const created=await systemApi.createAccount(name,adminUsername)
       setName('');setAdminUsername('')
+      await load()
       if(created.initialPasswordPath) setInvite({path:created.initialPasswordPath,expiresAt:created.initialPasswordExpiresAt})
-      await Promise.all([load(),onChanged()])
     }catch(e){setError(e instanceof Error?e.message:'Kunde inte skapa enkätkontot.')}
     finally{setBusy(false)}
   }
