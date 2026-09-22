@@ -71,6 +71,17 @@ Verifiera därefter readiness och ett administrativt smoke test.
 
 `ADMIN_BOOTSTRAP_USER` och `ADMIN_BOOTSTRAP_PASSWORD` används bara för att skapa den första lokala administratören om användaren saknas. Efter första lyckade bootstrap bör värdena tas bort eller lämnas tomma i produktionsmiljön.
 
-## Coolify/Podman
+## Coolify
 
-Arkitekturen är inte beroende av Coolify. `compose.production.yaml` kan användas som grund även i en Compose-kompatibel plattform. För Podman kan motsvarande compose-kommando användas. Säkerställ särskilt att plattformens proxy har SSE-buffering avstängd och tillräcklig timeout.
+För Coolify finns en separat profil i `deploy/coolify/`. Den använder de versionerade GHCR-images som publiceras vid GitHub Release och ansluter till en separat gemensam PostgreSQL-resurs i Coolify i stället för att starta en egen databascontainer.
+
+Se `deploy/coolify/README.md` för:
+- `Connect To Predefined Network`,
+- `DB_HOST`/databasinställningar,
+- image-versionering via `APP_VERSION`,
+- HTTPS/CSRF och SSE,
+- uppgradering, rollback och backup.
+
+## Podman
+
+Arkitekturen är inte beroende av Docker. `compose.production.yaml` kan användas som grund i en Compose-kompatibel Podman-miljö. Säkerställ särskilt att den yttre proxyn har SSE-buffering avstängd och tillräcklig timeout.
