@@ -2,7 +2,7 @@ package info.isaksson.erland.survey.accountapi;
 
 import info.isaksson.erland.survey.auth.AccountAccessService;
 import info.isaksson.erland.survey.auth.AdminCredentialPolicy;
-import info.isaksson.erland.survey.auth.PasswordHasher;
+import info.isaksson.erland.survey.auth.AdminPasswordTokenService;
 import info.isaksson.erland.survey.surveyapi.ApiException;
 import io.agroal.api.AgroalDataSource;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -17,8 +17,8 @@ import java.util.UUID;
 @ApplicationScoped
 public class AccountAdminService {
     @Inject AgroalDataSource dataSource;
-    @Inject PasswordHasher passwordHasher;
     @Inject AdminCredentialPolicy credentialPolicy;
+    @Inject AdminPasswordTokenService passwordTokens;
     @Inject AccountAccessService accountAccess;
 
     public List<AccountAdminView> list(UUID actorUserId, UUID accountId) {
@@ -40,7 +40,9 @@ public class AccountAdminService {
                             rs.getString("username"),
                             rs.getBoolean("active"),
                             rs.getString("role"),
-                            rs.getTimestamp("created_at").toInstant()
+                            rs.getTimestamp("created_at").toInstant(),
+                            null,
+                            null
                     ));
                 }
                 return result;
@@ -57,11 +59,7 @@ public class AccountAdminService {
         try (Connection connection = dataSource.getConnection()) {
             connection.setAutoCommit(false);
             try {
-                UUID adminUserId = resolveOrCreateAdmin(
-                        connection,
-                        request.username().trim(),
-                        request.initialPassword()
-                );
+                AdminResolution admin = resolveOrCreateAdmin(connection, request.username().trim());
 
                 try (PreparedStatement ps = connection.prepareStatement("""
                         INSERT INTO survey_account_admin (survey_account_id, admin_user_id, role, created_at)
@@ -69,11 +67,16 @@ public class AccountAdminService {
                         ON CONFLICT (survey_account_id, admin_user_id) DO NOTHING
                         """)) {
                     ps.setObject(1, accountId);
-                    ps.setObject(2, adminUserId);
+                    ps.setObject(2, admin.userId());
                     ps.executeUpdate();
                 }
 
-                AccountAdminView view = load(connection, accountId, adminUserId);
+                AdminPasswordTokenService.IssuedToken initialToken = admin.newlyCreated()
+                        ? passwordTokens.issue(connection, admin.userId(),
+                                AdminPasswordTokenService.Purpose.INITIAL_PASSWORD, actorUserId)
+                        : null;
+
+                AccountAdminView view = load(connection, accountId, admin.userId(), initialToken);
                 connection.commit();
                 return view;
             } catch (RuntimeException | SQLException e) {
@@ -152,7 +155,7 @@ public class AccountAdminService {
         }
     }
 
-    private UUID resolveOrCreateAdmin(Connection connection, String username, String password) throws SQLException {
+    private AdminResolution resolveOrCreateAdmin(Connection connection, String username) throws SQLException {
         try (PreparedStatement ps = connection.prepareStatement("""
                 SELECT id, active
                 FROM admin_user
@@ -164,28 +167,26 @@ public class AccountAdminService {
                     if (!rs.getBoolean("active")) {
                         throw new ApiException(409, "ADMIN_INACTIVE", "Administratörskontot är inaktivt.");
                     }
-                    return rs.getObject("id", UUID.class);
+                    return new AdminResolution(rs.getObject("id", UUID.class), false);
                 }
             }
         }
 
         String email = credentialPolicy.normalizeNewAdminEmail(username);
-        credentialPolicy.requireValidPassword(password);
-
         UUID id = UUID.randomUUID();
         try (PreparedStatement ps = connection.prepareStatement("""
                 INSERT INTO admin_user (id, username, password_hash, system_admin, active, created_at, updated_at)
-                VALUES (?, ?, ?, FALSE, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                VALUES (?, ?, NULL, FALSE, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                 """)) {
             ps.setObject(1, id);
             ps.setString(2, email);
-            ps.setString(3, passwordHasher.hash(password));
             ps.executeUpdate();
         }
-        return id;
+        return new AdminResolution(id, true);
     }
 
-    private AccountAdminView load(Connection connection, UUID accountId, UUID adminUserId) throws SQLException {
+    private AccountAdminView load(Connection connection, UUID accountId, UUID adminUserId,
+                                  AdminPasswordTokenService.IssuedToken initialToken) throws SQLException {
         try (PreparedStatement ps = connection.prepareStatement("""
                 SELECT u.id, u.username, u.active, m.role, m.created_at
                 FROM survey_account_admin m
@@ -218,6 +219,16 @@ public class AccountAdminService {
         }
     }
 
+    private record AdminResolution(UUID userId, boolean newlyCreated) {}
+
     public record AddAccountAdminRequest(String username, String initialPassword) {}
-    public record AccountAdminView(UUID userId, String username, boolean active, String role, Instant createdAt) {}
+    public record AccountAdminView(
+            UUID userId,
+            String username,
+            boolean active,
+            String role,
+            Instant createdAt,
+            String initialPasswordPath,
+            Instant initialPasswordExpiresAt
+    ) {}
 }
