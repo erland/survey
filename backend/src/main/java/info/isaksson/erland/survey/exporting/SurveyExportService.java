@@ -1,5 +1,6 @@
 package info.isaksson.erland.survey.exporting;
 
+import info.isaksson.erland.survey.auth.AccountAccessService;
 import info.isaksson.erland.survey.domain.QuestionOption;
 import info.isaksson.erland.survey.domain.Survey;
 import info.isaksson.erland.survey.domain.SurveyQuestion;
@@ -19,11 +20,14 @@ public class SurveyExportService {
     public static final int VERSION = 1;
 
     @Inject SurveyRepository surveyRepository;
+    @Inject AccountAccessService accountAccess;
 
-    public SurveyDefinitionExport exportDefinition(UUID ownerId, UUID surveyId) {
-        Survey survey = surveyRepository.find("id = ?1 and ownerId = ?2", surveyId, ownerId)
-                .firstResultOptional()
-                .orElseThrow(() -> new ApiException(404, "SURVEY_NOT_FOUND", "Enkäten kunde inte hittas."));
+    public SurveyDefinitionExport exportDefinition(UUID userId, UUID surveyId) {
+        return exportDefinition(userId, accountAccess.requireSingleAccount(userId), surveyId);
+    }
+
+    public SurveyDefinitionExport exportDefinition(UUID userId, UUID accountId, UUID surveyId) {
+        Survey survey = accountAccess.requireSurvey(userId, accountId, surveyId);
 
         return new SurveyDefinitionExport(
                 FORMAT,
