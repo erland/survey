@@ -29,6 +29,9 @@
 - [ ] Kontrollera att externa proxyheaders saneras enligt `docs/security.md`.
 - [ ] Skapa taggen `v0.1.0-rc.1`.
 - [ ] Publicera GitHub-releasen som prerelease.
+- [ ] Verifiera att release-actionen lyckas.
+- [ ] Verifiera att `ghcr.io/erland/survey-backend:0.1.0-rc.1` finns.
+- [ ] Verifiera att `ghcr.io/erland/survey-frontend:0.1.0-rc.1` finns.
 
 ## Stop-kriterier
 
