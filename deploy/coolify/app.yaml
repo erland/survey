@@ -1,0 +1,21 @@
+application: survey
+
+deployment:
+  type: coolify-compose
+  compose: deploy/coolify/compose.yaml
+
+database:
+  required: true
+  external: true
+  name: survey
+  user: survey
+
+images:
+  frontend: ghcr.io/erland/survey-frontend
+  backend: ghcr.io/erland/survey-backend
+
+services:
+  public:
+    - frontend
+  internal:
+    - backend
