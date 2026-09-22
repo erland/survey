@@ -1,8 +1,8 @@
 project: survey-service
 mode: CREATE
-current_step: STEP-42
-current_step_name: Account selection and admin UX
-status: implemented_ci_verified
+current_step: STEP-43
+current_step_name: User lifecycle
+status: implemented_pending_ci
 completed_through: STEP-42
 release_baseline: 1.0.0
 verification_policy:
@@ -115,5 +115,29 @@ step_42:
     - existing workshop E2E flow passes through account-scoped APIs
     - Playwright multi-account scenario creates a second account, opens the account chooser and switches account
     - CI run 75 passed backend, frontend and end-to-end
-next_step: STEP-43
-next_step_name: User lifecycle
+step_43:
+  changes:
+    - GET /api/system/admins lists global administrator users and account membership counts
+    - POST /api/system/admins/{userId}/deactivate disables login and revokes active sessions
+    - POST /api/system/admins/{userId}/activate re-enables a non-system administrator
+    - DELETE /api/system/admins/{userId} permanently deletes only safe orphan administrator users
+    - system administrator accounts are protected from lifecycle operations
+    - active accounts must be deactivated before permanent deletion
+    - account memberships must be removed before permanent deletion
+    - historical survey/run/presentation references block deletion
+    - system administration UI now exposes activate/deactivate/delete controls
+  invariants:
+    - deactivated administrators cannot authenticate or continue an existing session
+    - deleting an administrator can never cascade-delete surveys or invalidate historical ownership
+    - global admin_user deletion is only allowed after all account memberships are removed
+    - system administrators cannot delete or deactivate themselves through this API
+  verification:
+    - deactivate/reactivate/session revocation integration test added
+    - orphan deletion integration test added
+    - account-membership deletion guard test added
+    - active-user deletion guard test added
+    - system-admin protection test added
+    - historical-survey reference protection test added
+    - CI pending
+next_step: STEP-44
+next_step_name: Remove legacy owner authorization bridge
