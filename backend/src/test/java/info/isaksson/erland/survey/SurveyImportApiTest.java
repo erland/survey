@@ -21,6 +21,7 @@ class SurveyImportApiTest {
     @Test
     void exportImportRoundtripCreatesIndependentDraft() {
         String cookie = login();
+        String accountId = accountId(cookie);
         String sourceId = given().cookie("survey_admin_session", cookie).contentType(ContentType.JSON)
                 .body("""
                 {
@@ -36,15 +37,15 @@ class SurveyImportApiTest {
                   ]
                 }
                 """)
-                .post("/api/admin/surveys").then().statusCode(201).extract().path("id");
+                .post("/api/admin/accounts/{accountId}/surveys", accountId).then().statusCode(201).extract().path("id");
 
         String exported = given().cookie("survey_admin_session", cookie)
-                .get("/api/admin/surveys/" + sourceId + "/export")
+                .get("/api/admin/accounts/" + accountId + "/surveys/" + sourceId + "/export")
                 .then().statusCode(200).extract().asString();
 
         String importedId = given().cookie("survey_admin_session", cookie).contentType(ContentType.JSON)
                 .body(exported)
-                .post("/api/admin/surveys/import")
+                .post("/api/admin/accounts/{accountId}/surveys/import", accountId)
                 .then().statusCode(201)
                 .body("title", equalTo("Roundtrip"))
                 .body("description", equalTo("Bevaras"))
@@ -61,6 +62,7 @@ class SurveyImportApiTest {
     @Test
     void rejectsUnsupportedFormatAndVersion() {
         String cookie = login();
+        String accountId = accountId(cookie);
         given().cookie("survey_admin_session", cookie).contentType(ContentType.JSON)
                 .body("{\"format\":\"other\",\"version\":1,\"survey\":{\"title\":\"X\",\"questions\":[]}}")
                 .post("/api/admin/surveys/import")
@@ -75,7 +77,8 @@ class SurveyImportApiTest {
     @Test
     void invalidSurveyIsRejectedWithoutCreatingPartialSurvey() {
         String cookie = login();
-        int before = given().cookie("survey_admin_session", cookie).get("/api/admin/surveys")
+        String accountId = accountId(cookie);
+        int before = given().cookie("survey_admin_session", cookie).get("/api/admin/accounts/{accountId}/surveys", accountId)
                 .then().statusCode(200).extract().jsonPath().getList("$").size();
 
         given().cookie("survey_admin_session", cookie).contentType(ContentType.JSON)
@@ -97,7 +100,14 @@ class SurveyImportApiTest {
     void importRequiresAdminAuthentication() {
         given().contentType(ContentType.JSON)
                 .body("{\"format\":\"survey-definition\",\"version\":1,\"survey\":{\"title\":\"X\",\"questions\":[]}}")
-                .post("/api/admin/surveys/import")
+                .post("/api/admin/accounts/00000000-0000-0000-0000-000000000000/surveys/import")
                 .then().statusCode(401).body("code", equalTo("ADMIN_AUTH_REQUIRED"));
     }
+    private String accountId(String cookie) {
+        return given().cookie("survey_admin_session", cookie)
+                .get("/api/admin/accounts")
+                .then().statusCode(200)
+                .extract().path("[0].id");
+    }
+
 }
