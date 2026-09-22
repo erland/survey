@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { accountApi, ApiError, authApi, emptyQuestion, participantApi, ParticipantSurveyView, presentationApi, publicRunApi, QuestionInput, QuestionResult, QuestionType, RunLiveSummary, runApi, SurveyAccountMembership, SurveyInput, SurveyRunView, SurveySummary, SurveyView, surveyApi, systemApi } from './api/surveys'
 
-type Screen = { kind: 'list' } | { kind: 'edit'; id: string | null } | { kind: 'admins' } | { kind: 'system' }
+type Screen = { kind: 'list' } | { kind: 'edit'; id: string | null } | { kind: 'admins' } | { kind: 'system' } | { kind: 'password' }
 
 const typeLabels: Record<QuestionType, string> = {
   TEXT: 'Fritext', YES_NO: 'Ja / nej', SINGLE_CHOICE: 'Vallista', MULTIPLE_CHOICE: 'Kryssrutor', SCALE: 'Skala',
@@ -99,6 +99,40 @@ function SetPassword({ token }: { token:string|null }) {
   </form></main>
 }
 
+function ChangePassword({ onDone }: { onDone:()=>void }) {
+  const [currentPassword,setCurrentPassword]=useState('')
+  const [newPassword,setNewPassword]=useState('')
+  const [confirmPassword,setConfirmPassword]=useState('')
+  const [error,setError]=useState('')
+  const [done,setDone]=useState(false)
+  const [busy,setBusy]=useState(false)
+
+  async function submit(e:React.FormEvent){
+    e.preventDefault()
+    setError('')
+    if(newPassword.length<8){setError('Det nya lösenordet måste vara minst 8 tecken.');return}
+    if(newPassword!==confirmPassword){setError('De nya lösenorden matchar inte.');return}
+    setBusy(true)
+    try{
+      await authApi.changePassword(currentPassword,newPassword)
+      setCurrentPassword('');setNewPassword('');setConfirmPassword('');setDone(true)
+    }catch(e){setError(e instanceof Error?e.message:'Kunde inte ändra lösenordet.')}
+    finally{setBusy(false)}
+  }
+
+  return <section>
+    <div className="page-heading"><div><button className="back" onClick={onDone}>← Tillbaka</button><p className="eyebrow">Konto</p><h1>Ändra lösenord</h1><p className="muted">Ange ditt nuvarande lösenord och välj ett nytt lösenord med minst 8 tecken.</p></div></div>
+    <form className="card login-card" onSubmit={submit}>
+      <label>Nuvarande lösenord<input type="password" value={currentPassword} onChange={e=>setCurrentPassword(e.target.value)} autoComplete="current-password" required /></label>
+      <label>Nytt lösenord<input type="password" value={newPassword} onChange={e=>setNewPassword(e.target.value)} autoComplete="new-password" required /></label>
+      <label>Upprepa nytt lösenord<input type="password" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} autoComplete="new-password" required /></label>
+      {error&&<div className="error" role="alert">{error}</div>}
+      {done&&<div role="status">Lösenordet är ändrat. Övriga inloggade sessioner har avslutats.</div>}
+      <button className="primary" disabled={busy}>{busy?'Sparar…':'Ändra lösenord'}</button>
+    </form>
+  </section>
+}
+
 function InviteLink({ path, expiresAt, title='Länk för första lösenordet' }: { path:string; expiresAt:string|null; title?:string }) {
   const url=window.location.origin+path
   const [copied,setCopied]=useState(false)
@@ -114,7 +148,7 @@ function InviteLink({ path, expiresAt, title='Länk för första lösenordet' }:
   </div>
 }
 
-function AccountChooser({ accounts, onChoose, systemAdmin, onSystem }: { accounts: SurveyAccountMembership[]; onChoose: (id:string)=>void; systemAdmin:boolean; onSystem:()=>void }) {
+function AccountChooser({ accounts, onChoose, systemAdmin, onSystem, onPassword }: { accounts: SurveyAccountMembership[]; onChoose: (id:string)=>void; systemAdmin:boolean; onSystem:()=>void; onPassword:()=>void }) {
   return <main className="center-shell"><section className="card account-chooser">
     <p className="eyebrow">Survey Service</p>
     <h1>Välj enkätkonto</h1>
@@ -124,7 +158,7 @@ function AccountChooser({ accounts, onChoose, systemAdmin, onSystem }: { account
           <button className="account-choice" key={account.id} onClick={()=>onChoose(account.id)}>
             <strong>{account.name}</strong><span>{account.role}</span>
           </button>)}</div>}
-    {systemAdmin && <div className="system-entry"><button onClick={onSystem}>Systemadministration</button></div>}
+    <div className="system-entry"><button onClick={onPassword}>Ändra lösenord</button>{systemAdmin && <button onClick={onSystem}>Systemadministration</button>}</div>
   </section></main>
 }
 
@@ -843,20 +877,26 @@ export function App() {
     authApi.me().then(x=>setAuth({loading:false,username:x.username,systemAdmin:x.systemAdmin})).catch(()=>setAuth({loading:false,username:null,systemAdmin:false}))
   }}/>
 
+  if (screen.kind==='password') {
+    return <><a className="skip-link" href="#main-content">Hoppa till huvudinnehåll</a>
+      <header className="topbar"><div><strong>Survey Service</strong><span>Konto</span></div><div><span className="username">{auth.username}</span><button onClick={()=>void authApi.logout().then(()=>setAuth({loading:false,username:null,systemAdmin:false}))}>Logga ut</button></div></header>
+      <main id="main-content" className="app-shell" tabIndex={-1}><ChangePassword onDone={()=>setScreen(accountId?{kind:'list'}:{kind:'list'})}/></main></>
+  }
+
   if (!accountId && screen.kind !== 'system') {
-    return <AccountChooser accounts={accounts} onChoose={id=>selectAccount(id)} systemAdmin={auth.systemAdmin} onSystem={()=>setScreen({kind:'system'})} />
+    return <AccountChooser accounts={accounts} onChoose={id=>selectAccount(id)} systemAdmin={auth.systemAdmin} onSystem={()=>setScreen({kind:'system'})} onPassword={()=>setScreen({kind:'password'})} />
   }
 
   const currentAccount=accountId ? accounts.find(a=>a.id===accountId) ?? null : null
 
   if (screen.kind==='system') {
     return <><a className="skip-link" href="#main-content">Hoppa till huvudinnehåll</a>
-      <header className="topbar"><div><strong>Survey Service</strong><span>Systemadmin</span></div><div><span className="username">{auth.username}</span><button onClick={()=>void authApi.logout().then(()=>setAuth({loading:false,username:null,systemAdmin:false}))}>Logga ut</button></div></header>
+      <header className="topbar"><div><strong>Survey Service</strong><span>Systemadmin</span></div><div><button onClick={()=>setScreen({kind:'password'})}>Ändra lösenord</button><span className="username">{auth.username}</span><button onClick={()=>void authApi.logout().then(()=>setAuth({loading:false,username:null,systemAdmin:false}))}>Logga ut</button></div></header>
       <main id="main-content" className="app-shell" tabIndex={-1}><SystemAccountPanel onDone={()=>accountId?setScreen({kind:'list'}):setScreen({kind:'list'})} onChanged={loadAccounts}/></main></>
   }
 
   if (!currentAccount) {
-    return <AccountChooser accounts={accounts} onChoose={id=>selectAccount(id)} systemAdmin={auth.systemAdmin} onSystem={()=>setScreen({kind:'system'})} />
+    return <AccountChooser accounts={accounts} onChoose={id=>selectAccount(id)} systemAdmin={auth.systemAdmin} onSystem={()=>setScreen({kind:'system'})} onPassword={()=>setScreen({kind:'password'})} />
   }
 
   return <><a className="skip-link" href="#main-content">Hoppa till huvudinnehåll</a>
@@ -866,6 +906,7 @@ export function App() {
         {accounts.length>1&&<button onClick={clearAccount}>Byt konto</button>}
         <button onClick={()=>setScreen({kind:'admins'})}>Administratörer</button>
         {auth.systemAdmin&&<button onClick={()=>setScreen({kind:'system'})}>Systemadministration</button>}
+        <button onClick={()=>setScreen({kind:'password'})}>Ändra lösenord</button>
         <span className="username">{auth.username}</span>
         <button onClick={()=>void authApi.logout().then(()=>setAuth({loading:false,username:null,systemAdmin:false}))}>Logga ut</button>
       </div>
