@@ -8,13 +8,6 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:8080',
         changeOrigin: false,
-        configure(proxy) {
-          proxy.on('proxyReq', (proxyReq, req) => {
-            if (req.headers.host) {
-              proxyReq.setHeader('host', req.headers.host)
-            }
-          })
-        },
       },
     },
   },
