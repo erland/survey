@@ -204,7 +204,9 @@ public class AccountAdminService {
                         rs.getString("username"),
                         rs.getBoolean("active"),
                         rs.getString("role"),
-                        rs.getTimestamp("created_at").toInstant()
+                        rs.getTimestamp("created_at").toInstant(),
+                        initialToken == null ? null : passwordTokens.setupPath(initialToken),
+                        initialToken == null ? null : initialToken.expiresAt()
                 );
             }
         }
