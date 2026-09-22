@@ -1238,7 +1238,34 @@ Hantera administratörer som inte längre är kopplade till enkätkonton.
 
 ---
 
-## Steg 44 – Multi-user E2E och security hardening
+## Steg 44 – Remove legacy owner authorization bridge
+
+### Mål
+
+Slutföra övergången till kontoägande och ta bort den temporära kompatibilitetsbryggan mot användarägande.
+
+### Leverabler
+
+- ta bort `survey.owner_id` och triggern för implicit kontotilldelning
+- ta bort legacy `/api/admin/surveys` och `/api/admin/runs`
+- kräva explicit `accountId` för administrativa survey/run/result/export/live/presentation-anrop
+- ta bort implicit single-account-resolution i backend
+- bevara historiska created-by-referenser med `ON DELETE SET NULL`
+
+### Verifiering
+
+- alla backendtester använder account-scoped API
+- inga administrativa affärsoperationer gör implicit kontoval
+- publika deltagar-API:er fungerar oförändrat
+- CI helt grön
+
+### PR
+
+**PR: multi-user phase**
+
+---
+
+## Steg 45 – Multi-user E2E och security hardening
 
 ### Mål
 

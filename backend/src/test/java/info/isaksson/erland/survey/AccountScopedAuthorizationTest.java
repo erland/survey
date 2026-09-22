@@ -40,9 +40,41 @@ class AccountScopedAuthorizationTest {
                 .then().statusCode(200)
                 .body("title", equalTo("Tenant B survey"));
 
+        String runId = given()
+                .cookie("survey_admin_session", otherCookie)
+                .contentType(ContentType.JSON)
+                .body("{\"title\":\"Tenant B run\"}")
+                .post("/api/admin/accounts/" + otherAccount + "/surveys/" + surveyId + "/runs")
+                .then().statusCode(201)
+                .extract().path("id");
+
         given()
                 .cookie("survey_admin_session", testAdminCookie)
                 .get("/api/admin/accounts/" + otherAccount + "/surveys/" + surveyId)
+                .then().statusCode(403)
+                .body("code", equalTo("ACCOUNT_ACCESS_DENIED"));
+
+        given()
+                .cookie("survey_admin_session", testAdminCookie)
+                .get("/api/admin/accounts/" + otherAccount + "/runs/" + runId)
+                .then().statusCode(403)
+                .body("code", equalTo("ACCOUNT_ACCESS_DENIED"));
+
+        given()
+                .cookie("survey_admin_session", testAdminCookie)
+                .get("/api/admin/accounts/" + otherAccount + "/runs/" + runId + "/results")
+                .then().statusCode(403)
+                .body("code", equalTo("ACCOUNT_ACCESS_DENIED"));
+
+        given()
+                .cookie("survey_admin_session", testAdminCookie)
+                .get("/api/admin/accounts/" + otherAccount + "/runs/" + runId + "/export/json")
+                .then().statusCode(403)
+                .body("code", equalTo("ACCOUNT_ACCESS_DENIED"));
+
+        given()
+                .cookie("survey_admin_session", testAdminCookie)
+                .get("/api/admin/accounts/" + otherAccount + "/runs/" + runId + "/summary")
                 .then().statusCode(403)
                 .body("code", equalTo("ACCOUNT_ACCESS_DENIED"));
 

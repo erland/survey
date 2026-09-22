@@ -1,8 +1,8 @@
 project: survey-service
 mode: CREATE
-current_step: STEP-44
-current_step_name: Remove legacy owner authorization bridge
-status: implemented_ci_verified
+current_step: STEP-45
+current_step_name: Multi-user E2E and security hardening
+status: implemented_pending_ci
 completed_through: STEP-44
 release_baseline: 1.0.0
 verification_policy:
