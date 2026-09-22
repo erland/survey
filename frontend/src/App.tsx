@@ -99,7 +99,7 @@ function SetPassword({ token }: { token:string|null }) {
   </form></main>
 }
 
-function InviteLink({ path, expiresAt }: { path:string; expiresAt:string|null }) {
+function InviteLink({ path, expiresAt, title='Länk för första lösenordet' }: { path:string; expiresAt:string|null; title?:string }) {
   const url=window.location.origin+path
   const [copied,setCopied]=useState(false)
   async function copy(){
@@ -107,7 +107,7 @@ function InviteLink({ path, expiresAt }: { path:string; expiresAt:string|null })
     setCopied(true)
   }
   return <div className="card">
-    <h3>Länk för första lösenordet</h3>
+    <h3>{title}</h3>
     <p className="muted">Skicka länken till administratören. Den kan användas en gång{expiresAt?` och gäller till ${new Date(expiresAt).toLocaleString()}`:''}.</p>
     <label>Länk<input readOnly value={url} onFocus={e=>e.currentTarget.select()} /></label>
     <button type="button" onClick={()=>void copy()}>{copied?'Kopierad':'Kopiera länk'}</button>
@@ -172,6 +172,7 @@ function SystemAccountPanel({ onDone, onChanged }: { onDone:()=>void; onChanged:
   const [name,setName]=useState('')
   const [adminUsername,setAdminUsername]=useState('')
   const [invite,setInvite]=useState<{path:string;expiresAt:string|null}|null>(null)
+  const [resetLink,setResetLink]=useState<{path:string;expiresAt:string|null;username:string}|null>(null)
   const [error,setError]=useState('')
   const [busy,setBusy]=useState(false)
 
@@ -193,6 +194,14 @@ function SystemAccountPanel({ onDone, onChanged }: { onDone:()=>void; onChanged:
       if(created.initialPasswordPath) setInvite({path:created.initialPasswordPath,expiresAt:created.initialPasswordExpiresAt})
     }catch(e){setError(e instanceof Error?e.message:'Kunde inte skapa enkätkontot.')}
     finally{setBusy(false)}
+  }
+
+  async function createPasswordResetLink(userId:string, username:string){
+    setError('');setResetLink(null)
+    try{
+      const link=await systemApi.createPasswordResetLink(userId)
+      setResetLink({path:link.path,expiresAt:link.expiresAt,username})
+    }catch(e){setError(e instanceof Error?e.message:'Kunde inte skapa återställningslänken.')}
   }
 
   async function changeAdmin(userId:string, action:'activate'|'deactivate'){
@@ -220,6 +229,7 @@ function SystemAccountPanel({ onDone, onChanged }: { onDone:()=>void; onChanged:
       <button className="primary" disabled={busy||!name.trim()||!adminUsername.trim()}>{busy?'Skapar…':'Skapa konto'}</button>
     </form></div>
     {invite&&<InviteLink path={invite.path} expiresAt={invite.expiresAt}/>}
+    {resetLink&&<InviteLink path={resetLink.path} expiresAt={resetLink.expiresAt} title={`Återställ lösenord för ${resetLink.username}`}/>}
 
     <div className="card"><h2>Alla enkätkonton</h2><div className="admin-list">{accounts.map(account=><div className="admin-row" key={account.id}><div><strong>{account.name}</strong><div className="muted">{account.adminCount} administratör{account.adminCount===1?'':'er'}</div></div></div>)}</div></div>
 
@@ -230,6 +240,7 @@ function SystemAccountPanel({ onDone, onChanged }: { onDone:()=>void; onChanged:
           <div className="muted">{admin.systemAdmin?'Systemadmin · ':''}{admin.active?'Aktiv':'Inaktiv'} · {admin.accountCount} enkätkonto{admin.accountCount===1?'':'n'}</div>
         </div>
         <div className="actions">
+          {!admin.systemAdmin && admin.active && <button onClick={()=>void createPasswordResetLink(admin.id,admin.username)}>Skapa återställningslänk</button>}
           {!admin.systemAdmin && (admin.active
             ? <button onClick={()=>void changeAdmin(admin.id,'deactivate')}>Inaktivera</button>
             : <button onClick={()=>void changeAdmin(admin.id,'activate')}>Återaktivera</button>)}
