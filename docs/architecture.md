@@ -233,8 +233,6 @@ Ingen mikroservicearkitektur rekommenderas.
 
 ## 6. Domänmodell
 
-## 6. Domänmodell
-
 Administrativa resurser ägs av `SurveyAccount`, inte av en enskild administratör. `AdminUser` får åtkomst genom medlemskap i `survey_account_admin`. `createdByAdminUserId` är historisk/audit-metadata och används inte som tenant-gräns.
 
 
