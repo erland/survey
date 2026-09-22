@@ -2,8 +2,8 @@ project: survey-service
 mode: CREATE
 current_step: STEP-40
 current_step_name: System admin API
-status: implemented_pending_ci
-completed_through: STEP-39
+status: implemented_ci_verified
+completed_through: STEP-40
 release_baseline: 1.0.0
 verification_policy:
   local_static: required
@@ -75,6 +75,6 @@ step_40:
     - system-admin creation integration test added
     - ordinary-admin authorization test added
     - failed creation cleanup test added
-    - CI pending
+    - CI run 60 passed backend, frontend and end-to-end
 next_step: STEP-41
 next_step_name: Account admin management
