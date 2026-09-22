@@ -158,5 +158,25 @@ step_44:
     - migration/domain compilation passes in intermediate CI
     - account-scoped backend test migration completed
     - CI run 116 passed backend, frontend and end-to-end
-next_step: STEP-45
-next_step_name: Multi-user E2E and security hardening
+step_45:
+  changes:
+    - cross-account authorization tests cover survey, run, result, export and live summary routes
+    - Playwright covers two independent accounts, shared membership, account selection and last-admin protection
+    - isolated Flyway smoke test migrates seeded V7 data through V8/V9 without data loss
+  verification:
+    - CI run 120 passed backend, frontend and end-to-end
+release_readiness:
+  status: READY_WITH_WARNINGS
+  required_gates:
+    - scope completion: pass
+    - functional acceptance: pass
+    - authorization and tenant isolation: pass
+    - migration: pass
+    - packaging/build: pass
+    - repository hygiene: pass
+    - current-state documentation: pass after readiness update
+  warnings:
+    - release version and tag are intentionally deferred to the release step
+    - production smoke test is pending after merge/deployment
+next_step: MERGE
+next_step_name: Merge PR #3 after human approval

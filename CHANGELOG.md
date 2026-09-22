@@ -2,6 +2,30 @@
 
 Alla större ändringar i Survey Service dokumenteras här.
 
+## [Unreleased]
+
+### Tillagt
+
+- Fleranvändarstöd med enkätkonton som äger enkäter och administrativa resurser.
+- Systemadministration för att skapa enkätkonton med första administratör.
+- Kontomedlemskap där samma administratör kan tillhöra flera enkätkonton.
+- Kontoväljare och kontoindikering i admin-UI.
+- Hantering av enkätadministratörer inom respektive konto.
+- Aktivering, inaktivering och säker borttagning av globala administratörskonton.
+- Tenant-isoleringstester och Playwright-flöde för två separata konton.
+- Migrations-smoke-test från schema V7 genom V8/V9.
+
+### Ändrat
+
+- Administrativa survey/run/result/export/live/presentation-API:er kräver nu explicit `accountId`.
+- Survey ownership har flyttats från användare till `survey_account_id`.
+- Legacy `survey.owner_id` och gamla unscoped admin-endpoints har tagits bort.
+
+### Release readiness
+
+- Kod och migrationer är verifierade i CI.
+- Versionshöjning, release-tag och produktions-smoke-test görs i separat release/deployment-steg.
+
 ## [0.1.0-rc.1] - 2026-09-22
 
 Första release candidate för workshop- och enkätflödet.

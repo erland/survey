@@ -230,7 +230,11 @@ STEP-38 ska endast införa domän och migration:
 Account-scoped API och UI införs först i senare steg.
 
 
-## STEP-38 övergångsläge
+## Nuvarande läge efter STEP-44
+
+Övergången är avslutad. `survey.owner_id` och kompatibilitetstriggern är borttagna. `survey.survey_account_id` är ensam verksamhetsägare och alla administrativa survey/run/result/export/live/presentation-anrop kräver explicit `accountId`. Avsnitten nedan beskriver den historiska STEP-38-övergången och ska inte läsas som current state.
+
+## Historiskt STEP-38 övergångsläge
 
 Efter STEP-38 finns både `survey.owner_id` och `survey.survey_account_id`.
 
@@ -245,7 +249,7 @@ Detta är avsiktligt:
 Denna övergång gör datamigreringen isolerad och bakåtkompatibel medan tenant-isoleringen kan införas och testas separat.
 
 
-### Kompatibilitetsbrygga i STEP-38
+### Historisk kompatibilitetsbrygga i STEP-38
 
 Under STEP-38 finns en databas-trigger som endast aktiveras om äldre kod försöker skapa en `survey` utan `survey_account_id`. Triggern härleder då kontot från den befintliga `owner_id`-användarens medlemskap.
 
