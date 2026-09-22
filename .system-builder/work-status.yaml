@@ -1,9 +1,9 @@
 project: survey-service
 mode: CREATE
-current_step: STEP-41
-current_step_name: Account admin management
+current_step: STEP-42
+current_step_name: Account selection and admin UX
 status: implemented_ci_verified
-completed_through: STEP-41
+completed_through: STEP-42
 release_baseline: 1.0.0
 verification_policy:
   local_static: required
@@ -96,5 +96,24 @@ step_41:
     - last-admin protection test added
     - cross-account admin-management denial test added
     - CI run 67 passed backend, frontend and end-to-end
-next_step: STEP-42
-next_step_name: Account selection and admin UX
+step_42:
+  changes:
+    - GET /api/admin/accounts lists survey accounts for the authenticated administrator
+    - frontend survey and run clients now use account-scoped APIs exclusively
+    - selected survey account is encoded in /admin/accounts/{accountId}
+    - users with one account enter it automatically
+    - users with multiple accounts receive an explicit account chooser
+    - users with no accounts receive an informational no-account view
+    - current account is visible in the admin header and users can switch accounts
+    - account administrator management UI added
+    - system administrator survey-account creation UI added
+    - auth /me systemAdmin flag controls system-administration navigation
+    - selected account remains tab-local because it is carried in the URL rather than server-side session state
+  verification:
+    - frontend TypeScript build passes
+    - backend integration tests pass
+    - existing workshop E2E flow passes through account-scoped APIs
+    - Playwright multi-account scenario creates a second account, opens the account chooser and switches account
+    - CI run 75 passed backend, frontend and end-to-end
+next_step: STEP-43
+next_step_name: User lifecycle
