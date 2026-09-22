@@ -1,8 +1,8 @@
 project: survey-service
 mode: CREATE
-current_step: STEP-37
-current_step_name: Multi-user architecture and migration plan
-status: implemented_static_verified
+current_step: STEP-38
+current_step_name: Survey account domain and data migration
+status: implemented_pending_ci
 completed_through: STEP-37
 release_baseline: 1.0.0
 verification_policy:
@@ -20,25 +20,24 @@ history_summary:
   - STEP-35: production and Coolify deployment profiles
   - STEP-36: release candidate / first production release
   - STEP-37: multi-user account architecture and migration plan
-step_37:
-  decisions:
-    - survey_account owns surveys and downstream business data
-    - admin_user is a global login identity
-    - survey_account_admin links administrators to one or more survey accounts
-    - only system/bootstrap admin may create new survey accounts
-    - new survey account creation must atomically include at least one survey administrator
-    - survey administrators may manage administrators only within accounts where they are members
-    - an account may never be left without an administrator
-    - selected account is explicit in routes/API requests rather than global server-side session state
-    - tenant isolation is enforced server-side for survey, run, result and export access
-    - existing data migrates to an initial account before owner_id is removed
-  artifacts:
-    - docs/multi-user-architecture.md
-    - docs/development-plan.md updated with STEP-37..44
+step_38:
+  changes:
+    - Flyway V8 adds survey_account and survey_account_admin
+    - admin_user gains system_admin and active
+    - survey gains mandatory survey_account_id and created_by_admin_user_id
+    - existing surveys migrate to an initial Default account
+    - existing admins are linked to the initial account during migration
+    - configured bootstrap admin is promoted to system_admin and linked to the initial account on startup
+    - new and copied surveys receive survey_account_id while legacy owner_id remains temporarily
+    - inactive admin users are rejected by login/session authentication
+    - Panache domain entities and repositories added for survey accounts and memberships
+  transition:
+    - owner_id remains until STEP-39 moves authorization to account membership
+    - public participant behavior is unchanged
   verification:
-    - architecture separates identity, membership and business-data ownership
-    - migration path preserves existing surveys and results
-    - systemadmin boundary is explicit
-    - next implementation step is scoped to domain and Flyway migration
-next_step: STEP-38
-next_step_name: Survey account domain and data migration
+    - migration schema tests added
+    - survey account persistence tests added
+    - bootstrap system-admin membership test added
+    - CI pending
+next_step: STEP-39
+next_step_name: Account-scoped authorization
