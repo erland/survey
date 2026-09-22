@@ -81,6 +81,7 @@ export interface AuthMe {
 export interface SurveyAccountMembership { id: string; name: string; role: string }
 export interface AccountAdminView { userId: string; username: string; active: boolean; role: string; createdAt: string }
 export interface SystemAccountSummary { id: string; name: string; adminCount: number; createdAt: string; updatedAt: string }
+export interface SystemAdminUserView { id: string; username: string; systemAdmin: boolean; active: boolean; accountCount: number; createdAt: string; updatedAt: string }
 
 export const authApi = {
   me: () => request<AuthMe>('/api/auth/me'),
@@ -98,6 +99,10 @@ export const accountApi = {
 export const systemApi = {
   accounts: () => request<SystemAccountSummary[]>('/api/system/accounts'),
   createAccount: (accountName: string, adminUsername: string, adminPassword?: string) => request<{ id: string; name: string; adminUserId: string; adminUsername: string }>('/api/system/accounts', { method: 'POST', body: JSON.stringify({ accountName, adminUsername, adminPassword: adminPassword || null }) }),
+  admins: () => request<SystemAdminUserView[]>('/api/system/admins'),
+  deactivateAdmin: (userId: string) => request<void>(`/api/system/admins/${userId}/deactivate`, { method: 'POST' }),
+  activateAdmin: (userId: string) => request<void>(`/api/system/admins/${userId}/activate`, { method: 'POST' }),
+  deleteAdmin: (userId: string) => request<void>(`/api/system/admins/${userId}`, { method: 'DELETE' }),
 }
 
 
