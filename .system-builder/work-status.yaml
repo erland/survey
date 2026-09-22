@@ -1,12 +1,13 @@
 project: survey-service
 mode: CREATE
-current_step: STEP-35
-current_step_name: Deployment profile
-status: implemented_static_verified
+current_step: STEP-36
+current_step_name: Release candidate
+status: implemented_pending_ci
 completed_through: STEP-35
+release_candidate: 0.1.0-rc.1
 verification_policy:
   local_static: required
-  runtime: deferred_to_ci_when_tooling_unavailable
+  runtime: verified_in_ci
 history_summary:
   - STEP-01..03: bootstrap, CI, PostgreSQL and Flyway
   - STEP-04..08: admin authentication, survey domain/API and editor
@@ -16,25 +17,20 @@ history_summary:
   - STEP-26..30: survey/result import-export and complete archival package
   - STEP-31..33: UX, accessibility and security hardening
   - STEP-34: Playwright end-to-end coverage and CI E2E job
-step_35:
+  - STEP-35: production deployment profile
+step_36:
   changes:
-    - production Compose profile with frontend, backend and PostgreSQL services
-    - multi-stage Dockerfiles for Quarkus/Java 21 and React/Nginx
-    - same-origin Nginx reverse proxy for /api
-    - Nginx proxy settings disable buffering/caching and extend timeouts for SSE
-    - frontend and backend healthchecks plus PostgreSQL readiness dependency
-    - persistent PostgreSQL volume; app containers remain stateless
-    - production environment example with no usable default passwords
-    - PostgreSQL backup and restore scripts using pg_dump/pg_restore custom format
-    - deployment documentation for HTTPS proxy, SSE, upgrades, backup/restore and bootstrap admin
+    - backend and frontend version set to 0.1.0-rc.1
+    - CHANGELOG.md added
+    - release notes added for 0.1.0-rc.1
+    - RC checklist added with post-merge smoke tests and stop criteria
+    - known limitations documented
+    - README status updated for the release candidate
   verification:
-    - YAML files parse successfully
-    - shell scripts pass sh syntax check
-    - Dockerfiles and Nginx config statically reviewed
-    - runtime container build and reverse-proxy SSE test deferred because Docker/Podman is unavailable locally
+    - previous CI run 19 passed backend, frontend and end-to-end tests
+    - final RC commit CI pending
   notes:
-    - only frontend port is exposed by the production Compose profile
-    - outer reverse proxy must sanitize forwarded client-IP headers and terminate HTTPS
-    - remove bootstrap admin credentials after first administrator creation
-next_step: STEP-36
-next_step_name: Release candidate
+    - do not create the v0.1.0-rc.1 tag until the RC commit is merged and CI on main is green
+    - publish the GitHub release as a prerelease
+next_step: RELEASE
+next_step_name: Merge, smoke test and tag v0.1.0-rc.1
