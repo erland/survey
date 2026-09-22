@@ -33,7 +33,8 @@ class SurveyPackageExportTest {
         UUID ownerId = lookupTestAdminId();
         Survey survey = new Survey();
         survey.id = UUID.randomUUID();
-        survey.ownerId = ownerId;
+        survey.surveyAccountId = lookupTestAccountId(ownerId);
+        survey.createdByAdminUserId = ownerId;
         survey.title = "Mall efter ändring";
         survey.status = SurveyStatus.DRAFT;
         survey.createdAt = Instant.now();
@@ -61,7 +62,7 @@ class SurveyPackageExportTest {
         q.persist();
         run.questions.add(q);
 
-        byte[] archive = service.export(ownerId, run.id);
+        byte[] archive = service.export(ownerId, survey.surveyAccountId, run.id);
         Map<String, byte[]> files = unzip(archive);
 
         assertEquals(5, files.size());
@@ -79,6 +80,20 @@ class SurveyPackageExportTest {
         assertEquals("Workshop snapshot", exportedSurvey.at("/survey/title").asText());
         assertEquals("Snapshotfråga", exportedSurvey.at("/survey/questions/0/text").asText());
         assertFalse(new String(files.get("responses.json"), StandardCharsets.UTF_8).contains("clientTokenHash"));
+    }
+
+    private UUID lookupTestAccountId(UUID adminId) {
+        try (Connection c = dataSource.getConnection();
+             PreparedStatement ps = c.prepareStatement(
+                     "SELECT survey_account_id FROM survey_account_admin WHERE admin_user_id = ? ORDER BY created_at LIMIT 1")) {
+            ps.setObject(1, adminId);
+            try (ResultSet rs = ps.executeQuery()) {
+                assertTrue(rs.next(), "test admin must belong to a survey account");
+                return rs.getObject(1, UUID.class);
+            }
+        } catch (SQLException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     private UUID lookupTestAdminId() {
