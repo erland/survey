@@ -19,11 +19,6 @@ public class SurveyRunLifecycleService {
     @Inject AccountAccessService accountAccess;
 
     @Transactional
-    public SurveyRun schedule(UUID userId, UUID runId, Instant opensAt, Instant closesAt) {
-        return schedule(userId, accountAccess.requireSingleAccount(userId), runId, opensAt, closesAt);
-    }
-
-    @Transactional
     public SurveyRun schedule(UUID userId, UUID accountId, UUID runId, Instant opensAt, Instant closesAt) {
         if (opensAt == null) {
             throw new ApiException(400, "INVALID_RUN_SCHEDULE", "Öppningstid måste anges för ett schemalagt genomförande.");
@@ -43,11 +38,6 @@ public class SurveyRunLifecycleService {
     }
 
     @Transactional
-    public SurveyRun openNow(UUID userId, UUID runId) {
-        return openNow(userId, accountAccess.requireSingleAccount(userId), runId);
-    }
-
-    @Transactional
     public SurveyRun openNow(UUID userId, UUID accountId, UUID runId) {
         SurveyRun run = accountAccess.requireRun(userId, accountId, runId);
         requireNotClosed(run);
@@ -61,11 +51,6 @@ public class SurveyRunLifecycleService {
         run.opensAt = now;
         run.openedAt = now;
         return run;
-    }
-
-    @Transactional
-    public SurveyRun close(UUID userId, UUID runId) {
-        return close(userId, accountAccess.requireSingleAccount(userId), runId);
     }
 
     @Transactional
