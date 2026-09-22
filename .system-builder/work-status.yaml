@@ -1,8 +1,8 @@
 project: survey-service
 mode: CREATE
-current_step: STEP-39
-current_step_name: Account-scoped authorization
-status: implemented_ci_verified
+current_step: STEP-40
+current_step_name: System admin API
+status: implemented_pending_ci
 completed_through: STEP-39
 release_baseline: 1.0.0
 verification_policy:
@@ -56,5 +56,25 @@ step_39:
     - participant/public APIs remain unchanged
   verification:
     - CI run 53 passed backend, frontend and end-to-end
-next_step: STEP-40
-next_step_name: System admin API
+step_40:
+  changes:
+    - authenticated principal now exposes system_admin
+    - /api/system routes require an authenticated admin session
+    - GET /api/system/accounts lists survey accounts for system admins
+    - POST /api/system/accounts atomically creates a survey account and first ADMIN membership
+    - existing active admin users can be linked as first account admin
+    - new admin users require an initial password of at least 12 characters
+    - ordinary survey administrators receive SYSTEM_ADMIN_REQUIRED
+    - auth /me exposes systemAdmin for later frontend UX
+  invariants:
+    - only system_admin=true may create survey accounts
+    - every newly created survey account has at least one ADMIN before commit
+    - account and first-admin creation use one explicit database transaction
+    - newly created account admins are not system administrators
+  verification:
+    - system-admin creation integration test added
+    - ordinary-admin authorization test added
+    - failed creation cleanup test added
+    - CI pending
+next_step: STEP-41
+next_step_name: Account admin management
