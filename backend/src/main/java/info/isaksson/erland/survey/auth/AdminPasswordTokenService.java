@@ -28,41 +28,12 @@ public class AdminPasswordTokenService {
     long tokenHours;
 
     public IssuedToken issue(UUID adminUserId, Purpose purpose, UUID createdByAdminUserId) {
-        String token = newToken();
-        Instant expiresAt = Instant.now().plus(Duration.ofHours(tokenHours));
-
         try (Connection connection = dataSource.getConnection()) {
             connection.setAutoCommit(false);
             try {
-                try (PreparedStatement revoke = connection.prepareStatement("""
-                        UPDATE admin_password_token
-                        SET revoked_at = CURRENT_TIMESTAMP
-                        WHERE admin_user_id = ?
-                          AND used_at IS NULL
-                          AND revoked_at IS NULL
-                        """)) {
-                    revoke.setObject(1, adminUserId);
-                    revoke.executeUpdate();
-                }
-
-                try (PreparedStatement insert = connection.prepareStatement("""
-                        INSERT INTO admin_password_token (
-                            id, admin_user_id, token_hash, purpose,
-                            created_by_admin_user_id, expires_at
-                        )
-                        VALUES (?, ?, ?, ?, ?, ?)
-                        """)) {
-                    insert.setObject(1, UUID.randomUUID());
-                    insert.setObject(2, adminUserId);
-                    insert.setString(3, sha256(token));
-                    insert.setString(4, purpose.name());
-                    insert.setObject(5, createdByAdminUserId);
-                    insert.setTimestamp(6, Timestamp.from(expiresAt));
-                    insert.executeUpdate();
-                }
-
+                IssuedToken token = issue(connection, adminUserId, purpose, createdByAdminUserId);
                 connection.commit();
-                return new IssuedToken(token, expiresAt, purpose);
+                return token;
             } catch (RuntimeException | SQLException e) {
                 connection.rollback();
                 throw e;
@@ -72,6 +43,45 @@ public class AdminPasswordTokenService {
         } catch (SQLException e) {
             throw new IllegalStateException("Could not issue admin password token", e);
         }
+    }
+
+    public IssuedToken issue(Connection connection, UUID adminUserId, Purpose purpose,
+                             UUID createdByAdminUserId) throws SQLException {
+        String token = newToken();
+        Instant expiresAt = Instant.now().plus(Duration.ofHours(tokenHours));
+
+        try (PreparedStatement revoke = connection.prepareStatement("""
+                UPDATE admin_password_token
+                SET revoked_at = CURRENT_TIMESTAMP
+                WHERE admin_user_id = ?
+                  AND used_at IS NULL
+                  AND revoked_at IS NULL
+                """)) {
+            revoke.setObject(1, adminUserId);
+            revoke.executeUpdate();
+        }
+
+        try (PreparedStatement insert = connection.prepareStatement("""
+                INSERT INTO admin_password_token (
+                    id, admin_user_id, token_hash, purpose,
+                    created_by_admin_user_id, expires_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?)
+                """)) {
+            insert.setObject(1, UUID.randomUUID());
+            insert.setObject(2, adminUserId);
+            insert.setString(3, sha256(token));
+            insert.setString(4, purpose.name());
+            insert.setObject(5, createdByAdminUserId);
+            insert.setTimestamp(6, Timestamp.from(expiresAt));
+            insert.executeUpdate();
+        }
+
+        return new IssuedToken(token, expiresAt, purpose);
+    }
+
+    public String setupPath(IssuedToken token) {
+        return "/admin/set-password?token=" + token.token();
     }
 
     private String newToken() {
