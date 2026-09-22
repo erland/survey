@@ -35,7 +35,7 @@ public class AuthService {
         }
         try (Connection connection = dataSource.getConnection();
              PreparedStatement statement = connection.prepareStatement(
-                     "SELECT id, username, password_hash FROM admin_user WHERE lower(username) = lower(?)")) {
+                     "SELECT id, username, password_hash FROM admin_user WHERE lower(username) = lower(?) AND active = TRUE")) {
             statement.setString(1, username.trim());
             try (ResultSet rs = statement.executeQuery()) {
                 if (!rs.next() || !passwordHasher.verify(password, rs.getString("password_hash"))) {
@@ -63,6 +63,7 @@ public class AuthService {
                  FROM admin_session s
                  JOIN admin_user u ON u.id = s.admin_user_id
                  WHERE s.token_hash = ?
+                   AND u.active = TRUE
                    AND s.revoked_at IS NULL
                    AND s.expires_at > CURRENT_TIMESTAMP
                  """)) {
