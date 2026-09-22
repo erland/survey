@@ -22,10 +22,6 @@ public class SurveyExportService {
     @Inject SurveyRepository surveyRepository;
     @Inject AccountAccessService accountAccess;
 
-    public SurveyDefinitionExport exportDefinition(UUID userId, UUID surveyId) {
-        return exportDefinition(userId, accountAccess.requireSingleAccount(userId), surveyId);
-    }
-
     public SurveyDefinitionExport exportDefinition(UUID userId, UUID accountId, UUID surveyId) {
         Survey survey = accountAccess.requireSurvey(userId, accountId, surveyId);
 
