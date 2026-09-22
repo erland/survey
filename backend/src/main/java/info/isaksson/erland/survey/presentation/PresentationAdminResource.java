@@ -12,7 +12,6 @@ import java.util.UUID;
 
 @Path("/api/admin/runs/{runId}/presentation-tokens")
 @Produces(MediaType.APPLICATION_JSON)
-@Consumes(MediaType.APPLICATION_JSON)
 public class PresentationAdminResource {
     @Inject PresentationTokenService tokens;
     @Inject AdminRequestContext adminRequestContext;
