@@ -128,9 +128,9 @@ test('multi-user accounts stay isolated and administrators can manage membership
   const suffix = Date.now()
   const accountA = `E2E account A ${suffix}`
   const accountB = `E2E account B ${suffix}`
-  const adminA = `e2e-admin-a-${suffix}`
-  const adminB = `e2e-admin-b-${suffix}`
-  const sharedAdmin = `e2e-shared-${suffix}`
+  const adminA = `e2e-admin-a-${suffix}@example.test`
+  const adminB = `e2e-admin-b-${suffix}@example.test`
+  const sharedAdmin = `e2e-shared-${suffix}@example.test`
   const passwordA = 'e2e-password-a-123'
   const passwordB = 'e2e-password-b-123'
   const sharedPassword = 'e2e-shared-password-123'
