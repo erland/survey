@@ -22,6 +22,7 @@ public class CsrfOriginFilter implements ContainerRequestFilter {
         if (SAFE_METHODS.contains(request.getMethod())) return;
 
         String path = request.getUriInfo().getPath();
+        if (path.startsWith("/")) path = path.substring(1);
         if (!(path.startsWith("api/admin/") || path.equals("api/admin") || path.equals("api/auth/logout"))) {
             return;
         }
