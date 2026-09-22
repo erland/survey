@@ -1,8 +1,8 @@
 project: survey-service
 mode: CREATE
-current_step: STEP-43
-current_step_name: User lifecycle
-status: implemented_ci_verified
+current_step: STEP-44
+current_step_name: Remove legacy owner authorization bridge
+status: implemented_pending_ci
 completed_through: STEP-43
 release_baseline: 1.0.0
 verification_policy:
@@ -139,5 +139,24 @@ step_43:
     - system-admin protection test added
     - historical-survey reference protection test added
     - CI run 83 passed backend, frontend and end-to-end
-next_step: STEP-44
-next_step_name: Remove legacy owner authorization bridge
+step_44:
+  changes:
+    - Flyway V9 removes survey.owner_id and the temporary account-assignment trigger
+    - survey ownership is exclusively survey_account_id
+    - legacy /api/admin/surveys and /api/admin/runs resources removed
+    - administrative survey/run/result/export/live/presentation access requires explicit accountId
+    - implicit requireSingleAccount compatibility methods removed from backend services
+    - historical created_by references on survey_run and presentation_token use ON DELETE SET NULL
+    - lifecycle history checks no longer depend on legacy owner_id
+    - backend API tests migrated to account-scoped routes
+  invariants:
+    - there is no implicit account selection in backend administrative business operations
+    - survey data is always owned by a survey account
+    - public participant APIs remain unchanged
+    - deletion of administrator users cannot delete survey data
+  verification:
+    - migration/domain compilation passes in intermediate CI
+    - account-scoped backend test migration completed
+    - final CI pending
+next_step: STEP-45
+next_step_name: Multi-user E2E and security hardening
