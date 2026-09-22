@@ -53,7 +53,8 @@ public class AuthResource {
         return authService.authenticate(token)
                 .map(principal -> Response.ok(Map.of(
                         "authenticated", true,
-                        "username", principal.username())).build())
+                        "username", principal.username(),
+                        "systemAdmin", principal.systemAdmin())).build())
                 .orElseGet(() -> Response.status(Response.Status.UNAUTHORIZED)
                         .entity(Map.of(
                                 "code", "ADMIN_AUTH_REQUIRED",
