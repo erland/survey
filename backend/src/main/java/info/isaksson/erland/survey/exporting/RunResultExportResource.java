@@ -1,12 +1,10 @@
 package info.isaksson.erland.survey.exporting;
 
-import info.isaksson.erland.survey.auth.AdminAuthFilter;
+import info.isaksson.erland.survey.auth.AdminRequestContext;
 import info.isaksson.erland.survey.auth.AuthService.AdminPrincipal;
 import info.isaksson.erland.survey.surveyapi.ApiException;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
-import jakarta.ws.rs.container.ContainerRequestContext;
-import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
@@ -18,7 +16,7 @@ public class RunResultExportResource {
     @Inject RunResultExportService service;
     @Inject RunResultCsvExportService csvService;
     @Inject SurveyPackageExportService packageService;
-    @Context ContainerRequestContext requestContext;
+    @Inject AdminRequestContext adminRequestContext;
 
     @GET
     @Path("/json")
@@ -58,8 +56,8 @@ public class RunResultExportResource {
     }
 
     private AdminPrincipal principal() {
-        Object value = requestContext.getProperty(AdminAuthFilter.PRINCIPAL_PROPERTY);
-        if (value instanceof AdminPrincipal principal) return principal;
+        AdminPrincipal principal = adminRequestContext.principal();
+        if (principal != null) return principal;
         throw new ApiException(401, "ADMIN_AUTH_REQUIRED", "Administratörsinloggning krävs.");
     }
 }
