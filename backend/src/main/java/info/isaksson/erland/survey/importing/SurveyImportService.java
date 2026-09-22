@@ -24,13 +24,24 @@ public class SurveyImportService {
     @Inject SurveyService surveyService;
 
     @Transactional
-    public SurveyView importDefinition(UUID ownerId, SurveyDefinitionExport document) {
+    public SurveyView importDefinition(UUID userId, SurveyDefinitionExport document) {
         validateEnvelope(document);
         var definition = document.survey();
         List<QuestionInput> questions = definition.questions() == null ? List.of() : definition.questions().stream()
                 .map(this::question)
                 .toList();
-        return surveyService.create(ownerId,
+        return surveyService.create(userId,
+                new SurveyInput(definition.title(), definition.description(), SurveyStatus.DRAFT, questions));
+    }
+
+    @Transactional
+    public SurveyView importDefinition(UUID userId, UUID accountId, SurveyDefinitionExport document) {
+        validateEnvelope(document);
+        var definition = document.survey();
+        List<QuestionInput> questions = definition.questions() == null ? List.of() : definition.questions().stream()
+                .map(this::question)
+                .toList();
+        return surveyService.create(userId, accountId,
                 new SurveyInput(definition.title(), definition.description(), SurveyStatus.DRAFT, questions));
     }
 
