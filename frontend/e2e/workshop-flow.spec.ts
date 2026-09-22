@@ -105,3 +105,31 @@ test('admin creates survey, participant answers, live result, presentation and e
   await expect(page.getByRole('heading', { name: surveyTitle })).toBeVisible()
   await expect(page.locator('.question-card')).toHaveCount(2)
 })
+
+
+test('admin with multiple survey accounts chooses and switches account', async ({ page }) => {
+  await login(page)
+
+  const accountName = `E2E account ${Date.now()}`
+  await page.getByRole('button', { name: 'Systemadministration' }).click()
+  await expect(page.getByRole('heading', { name: 'Enkätkonton' })).toBeVisible()
+
+  await page.getByLabel('Kontonamn').fill(accountName)
+  await page.getByLabel('Första administratör').fill('admin')
+  await page.getByRole('button', { name: 'Skapa konto' }).click()
+  await expect(page.getByText(accountName, { exact: true })).toBeVisible()
+
+  await page.getByRole('button', { name: '← Tillbaka' }).click()
+  await expect(page.getByRole('heading', { name: 'Mina enkäter' })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Byt konto' }).click()
+  await expect(page.getByRole('heading', { name: 'Välj enkätkonto' })).toBeVisible()
+
+  const accountButton = page.getByRole('button').filter({ hasText: accountName })
+  await expect(accountButton).toBeVisible()
+  await accountButton.click()
+
+  await expect(page.getByRole('heading', { name: 'Mina enkäter' })).toBeVisible()
+  await expect(page.locator('.account-name')).toHaveText(accountName)
+  await expect(page).toHaveURL(/\/admin\/accounts\/[0-9a-f-]+$/)
+})
