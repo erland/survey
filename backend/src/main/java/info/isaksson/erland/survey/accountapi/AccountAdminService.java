@@ -93,12 +93,21 @@ public class AccountAdminService {
         try (Connection connection = dataSource.getConnection()) {
             connection.setAutoCommit(false);
             try {
+                try (PreparedStatement ps = connection.prepareStatement(
+                        "SELECT id FROM survey_account WHERE id = ? FOR UPDATE")) {
+                    ps.setObject(1, accountId);
+                    try (ResultSet rs = ps.executeQuery()) {
+                        if (!rs.next()) {
+                            throw new ApiException(404, "ACCOUNT_NOT_FOUND", "Enkätkontot kunde inte hittas.");
+                        }
+                    }
+                }
+
                 int count;
                 try (PreparedStatement ps = connection.prepareStatement("""
                         SELECT COUNT(*)
                         FROM survey_account_admin
                         WHERE survey_account_id = ?
-                        FOR UPDATE
                         """)) {
                     ps.setObject(1, accountId);
                     try (ResultSet rs = ps.executeQuery()) {
