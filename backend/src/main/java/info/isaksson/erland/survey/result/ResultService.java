@@ -23,11 +23,6 @@ public class ResultService {
     @Inject EntityManager em;
 
     @Transactional
-    public List<QuestionResult> all(UUID userId, UUID runId) {
-        return all(userId, accountAccess.requireSingleAccount(userId), runId);
-    }
-
-    @Transactional
     public List<QuestionResult> all(UUID userId, UUID accountId, UUID runId) {
         SurveyRun run = accountRun(userId, accountId, runId);
         return allForRun(run.id);
@@ -41,11 +36,6 @@ public class ResultService {
                 .sorted(Comparator.comparingInt(q -> q.position))
                 .map(q -> aggregate(run.id, q))
                 .toList();
-    }
-
-    @Transactional
-    public QuestionResult one(UUID userId, UUID runId, UUID questionId) {
-        return one(userId, accountAccess.requireSingleAccount(userId), runId, questionId);
     }
 
     @Transactional
