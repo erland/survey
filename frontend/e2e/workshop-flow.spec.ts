@@ -112,7 +112,7 @@ test('admin with multiple survey accounts chooses and switches account', async (
 
   const accountName = `E2E account ${Date.now()}`
   await page.getByRole('button', { name: 'Systemadministration' }).click()
-  await expect(page.getByRole('heading', { name: 'Enkätkonton' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Enkätkonton', exact: true })).toBeVisible()
 
   await page.getByLabel('Kontonamn').fill(accountName)
   await page.getByLabel('Första administratör').fill('admin')
