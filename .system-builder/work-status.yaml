@@ -1,9 +1,9 @@
 project: survey-service
-mode: CREATE
-current_step: STEP-46
-current_step_name: Repair cascading survey deletion
+mode: CHANGE
+current_step: STEP-47
+current_step_name: Admin authentication foundation
 status: implemented_pending_ci
-completed_through: STEP-45
+completed_through: STEP-46
 release_baseline: 1.0.0
 verification_policy:
   local_static: required
@@ -179,7 +179,7 @@ release_readiness:
     - release version and tag are intentionally deferred to the release step
     - production smoke test is pending after merge/deployment
 next_step: VERIFY
-next_step_name: Verify survey deletion repair in CI
+next_step_name: Verify admin authentication foundation in CI
 
 step_46:
   changes:
@@ -191,4 +191,27 @@ step_46:
     - survey deletion is a permanent aggregate deletion
     - no orphan survey runs or participant data remain after survey deletion
   verification:
+    - CI run 125 passed backend, frontend and end-to-end
+
+step_47:
+  changes:
+    - minimum password length for newly created regular administrators is reduced from 12 to 8 characters
+    - newly created regular administrators must use a normalized email address as their login identifier
+    - existing legacy administrator usernames remain usable and may still be linked to additional survey accounts
+    - bootstrap/system administrator usernames remain exempt from the email requirement
+    - admin_user.password_hash is nullable to support accounts that have not set their first password yet
+    - admin_password_token stores hashed, expiring, single-use-capable INITIAL_PASSWORD and PASSWORD_RESET tokens
+    - issuing a new password token revokes earlier unused tokens for the same administrator
+    - password token lifetime is configurable and defaults to 24 hours
+    - passwordless administrators cannot authenticate with the ordinary password login flow
+  invariants:
+    - clear password tokens are never stored in the database
+    - bootstrap administrator identity remains configuration-driven and may be a non-email username
+    - legacy non-email administrators remain compatible
+    - new ordinary administrators require an email identity
+    - password token UI and consumption endpoints are deferred to subsequent steps
+  verification:
+    - migration coverage checks password-token schema and nullable password hashes
+    - policy coverage checks eight-character passwords and email requirement
+    - token service coverage checks hash-only persistence and revocation of older tokens
     - pending CI
