@@ -1,0 +1,36 @@
+project: survey-service
+mode: CREATE
+current_step: STEP-36
+current_step_name: Release candidate
+status: implemented_ci_verified
+completed_through: STEP-36
+release_candidate: 0.1.0-rc.1
+verification_policy:
+  local_static: required
+  runtime: verified_in_ci
+history_summary:
+  - STEP-01..03: bootstrap, CI, PostgreSQL and Flyway
+  - STEP-04..08: admin authentication, survey domain/API and editor
+  - STEP-09..13: survey-run snapshot, lifecycle, public lookup and sharing
+  - STEP-14..18: anonymous participant session, participant UI, autosave, submit and heartbeat
+  - STEP-19..25: result aggregation, live/SSE, charts, free text, presentation and read-only token
+  - STEP-26..30: survey/result import-export and complete archival package
+  - STEP-31..33: UX, accessibility and security hardening
+  - STEP-34: Playwright end-to-end coverage and CI E2E job
+  - STEP-35: production deployment profile
+step_36:
+  changes:
+    - backend and frontend version set to 0.1.0-rc.1
+    - CHANGELOG.md added
+    - release notes added for 0.1.0-rc.1
+    - RC checklist added with post-merge smoke tests and stop criteria
+    - known limitations documented
+    - README status updated for the release candidate
+  verification:
+    - previous CI run 19 passed backend, frontend and end-to-end tests
+    - final RC commit verified by CI run 23: backend, frontend and end-to-end all passed
+  notes:
+    - do not create the v0.1.0-rc.1 tag until the RC commit is merged and CI on main is green
+    - publish the GitHub release as a prerelease
+next_step: RELEASE
+next_step_name: Merge, smoke test and tag v0.1.0-rc.1
