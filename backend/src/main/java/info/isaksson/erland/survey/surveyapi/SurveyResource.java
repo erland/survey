@@ -15,7 +15,6 @@ import static info.isaksson.erland.survey.surveyapi.SurveyDtos.*;
 
 @Path("/api/admin/surveys")
 @Produces(MediaType.APPLICATION_JSON)
-@Consumes(MediaType.APPLICATION_JSON)
 public class SurveyResource {
     @Inject SurveyService service;
     @Inject AdminRequestContext adminRequestContext;
@@ -32,6 +31,7 @@ public class SurveyResource {
     }
 
     @POST
+    @Consumes(MediaType.APPLICATION_JSON)
     public Response create(SurveyInput input) {
         SurveyView created = service.create(principal().userId(), input);
         return Response.created(URI.create("/api/admin/surveys/" + created.id())).entity(created).build();
@@ -39,6 +39,7 @@ public class SurveyResource {
 
     @PUT
     @Path("/{id}")
+    @Consumes(MediaType.APPLICATION_JSON)
     public SurveyView update(@PathParam("id") UUID id, SurveyInput input) {
         return service.update(principal().userId(), id, input);
     }
