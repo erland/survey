@@ -1,8 +1,8 @@
 package info.isaksson.erland.survey.systemapi;
 
 import info.isaksson.erland.survey.auth.AdminCredentialPolicy;
+import info.isaksson.erland.survey.auth.AdminPasswordTokenService;
 import info.isaksson.erland.survey.auth.AuthService.AdminPrincipal;
-import info.isaksson.erland.survey.auth.PasswordHasher;
 import info.isaksson.erland.survey.surveyapi.ApiException;
 import io.agroal.api.AgroalDataSource;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -17,8 +17,8 @@ import java.util.UUID;
 @ApplicationScoped
 public class SystemAccountService {
     @Inject AgroalDataSource dataSource;
-    @Inject PasswordHasher passwordHasher;
     @Inject AdminCredentialPolicy credentialPolicy;
+    @Inject AdminPasswordTokenService passwordTokens;
 
     public List<AccountSummary> list(AdminPrincipal principal) {
         requireSystemAdmin(principal);
@@ -54,7 +54,7 @@ public class SystemAccountService {
         try (Connection connection = dataSource.getConnection()) {
             connection.setAutoCommit(false);
             try {
-                UUID adminUserId = resolveOrCreateAdmin(connection, request.adminUsername().trim(), request.adminPassword());
+                AdminResolution admin = resolveOrCreateAdmin(connection, request.adminUsername().trim());
                 UUID accountId = UUID.randomUUID();
 
                 try (PreparedStatement ps = connection.prepareStatement("""
@@ -71,12 +71,24 @@ public class SystemAccountService {
                         VALUES (?, ?, 'ADMIN', CURRENT_TIMESTAMP)
                         """)) {
                     ps.setObject(1, accountId);
-                    ps.setObject(2, adminUserId);
+                    ps.setObject(2, admin.userId());
                     ps.executeUpdate();
                 }
 
+                AdminPasswordTokenService.IssuedToken initialToken = admin.newlyCreated()
+                        ? passwordTokens.issue(connection, admin.userId(),
+                                AdminPasswordTokenService.Purpose.INITIAL_PASSWORD, principal.userId())
+                        : null;
+
                 connection.commit();
-                return new CreatedAccount(accountId, request.accountName().trim(), adminUserId, request.adminUsername().trim());
+                return new CreatedAccount(
+                        accountId,
+                        request.accountName().trim(),
+                        admin.userId(),
+                        admin.loginName(),
+                        initialToken == null ? null : passwordTokens.setupPath(initialToken),
+                        initialToken == null ? null : initialToken.expiresAt()
+                );
             } catch (RuntimeException | SQLException e) {
                 connection.rollback();
                 throw e;
@@ -90,9 +102,9 @@ public class SystemAccountService {
         }
     }
 
-    private UUID resolveOrCreateAdmin(Connection connection, String username, String password) throws SQLException {
+    private AdminResolution resolveOrCreateAdmin(Connection connection, String username) throws SQLException {
         try (PreparedStatement ps = connection.prepareStatement("""
-                SELECT id, active
+                SELECT id, username, active
                 FROM admin_user
                 WHERE lower(username) = lower(?)
                 """)) {
@@ -102,25 +114,26 @@ public class SystemAccountService {
                     if (!rs.getBoolean("active")) {
                         throw new ApiException(409, "ADMIN_INACTIVE", "Administratörskontot är inaktivt.");
                     }
-                    return rs.getObject("id", UUID.class);
+                    return new AdminResolution(
+                            rs.getObject("id", UUID.class),
+                            rs.getString("username"),
+                            false
+                    );
                 }
             }
         }
 
         String email = credentialPolicy.normalizeNewAdminEmail(username);
-        credentialPolicy.requireValidPassword(password);
-
         UUID id = UUID.randomUUID();
         try (PreparedStatement ps = connection.prepareStatement("""
                 INSERT INTO admin_user (id, username, password_hash, system_admin, active, created_at, updated_at)
-                VALUES (?, ?, ?, FALSE, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                VALUES (?, ?, NULL, FALSE, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                 """)) {
             ps.setObject(1, id);
             ps.setString(2, email);
-            ps.setString(3, passwordHasher.hash(password));
             ps.executeUpdate();
         }
-        return id;
+        return new AdminResolution(id, email, true);
     }
 
     private void validate(CreateAccountRequest request) {
@@ -147,7 +160,16 @@ public class SystemAccountService {
         }
     }
 
+    private record AdminResolution(UUID userId, String loginName, boolean newlyCreated) {}
+
     public record CreateAccountRequest(String accountName, String adminUsername, String adminPassword) {}
-    public record CreatedAccount(UUID id, String name, UUID adminUserId, String adminUsername) {}
+    public record CreatedAccount(
+            UUID id,
+            String name,
+            UUID adminUserId,
+            String adminUsername,
+            String initialPasswordPath,
+            Instant initialPasswordExpiresAt
+    ) {}
     public record AccountSummary(UUID id, String name, long adminCount, Instant createdAt, Instant updatedAt) {}
 }
