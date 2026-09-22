@@ -19,10 +19,6 @@ public class SurveyService {
     @Inject SurveyRepository surveyRepository;
     @Inject AccountAccessService accountAccess;
 
-    public List<SurveySummary> list(UUID userId) {
-        return list(userId, accountAccess.requireSingleAccount(userId));
-    }
-
     public List<SurveySummary> list(UUID userId, UUID accountId) {
         accountAccess.requireMembership(userId, accountId);
         return surveyRepository.find("surveyAccountId = ?1 order by updatedAt desc", accountId).list().stream()
@@ -30,17 +26,8 @@ public class SurveyService {
                 .toList();
     }
 
-    public SurveyView get(UUID userId, UUID surveyId) {
-        return get(userId, accountAccess.requireSingleAccount(userId), surveyId);
-    }
-
     public SurveyView get(UUID userId, UUID accountId, UUID surveyId) {
         return toView(accountAccess.requireSurvey(userId, accountId, surveyId));
-    }
-
-    @Transactional
-    public SurveyView create(UUID userId, SurveyInput input) {
-        return create(userId, accountAccess.requireSingleAccount(userId), input);
     }
 
     @Transactional
@@ -49,7 +36,6 @@ public class SurveyService {
         accountAccess.requireMembership(userId, accountId);
         Survey survey = new Survey();
         survey.id = UUID.randomUUID();
-        survey.ownerId = userId;
         survey.surveyAccountId = accountId;
         survey.createdByAdminUserId = userId;
         survey.createdAt = Instant.now();
@@ -57,11 +43,6 @@ public class SurveyService {
         apply(survey, input);
         surveyRepository.persist(survey);
         return toView(survey);
-    }
-
-    @Transactional
-    public SurveyView update(UUID userId, UUID surveyId, SurveyInput input) {
-        return update(userId, accountAccess.requireSingleAccount(userId), surveyId, input);
     }
 
     @Transactional
@@ -74,19 +55,9 @@ public class SurveyService {
     }
 
     @Transactional
-    public void delete(UUID userId, UUID surveyId) {
-        delete(userId, accountAccess.requireSingleAccount(userId), surveyId);
-    }
-
-    @Transactional
     public void delete(UUID userId, UUID accountId, UUID surveyId) {
         Survey survey = accountAccess.requireSurvey(userId, accountId, surveyId);
         surveyRepository.delete(survey);
-    }
-
-    @Transactional
-    public SurveyView copy(UUID userId, UUID surveyId) {
-        return copy(userId, accountAccess.requireSingleAccount(userId), surveyId);
     }
 
     @Transactional
@@ -94,7 +65,6 @@ public class SurveyService {
         Survey source = accountAccess.requireSurvey(userId, accountId, surveyId);
         Survey copy = new Survey();
         copy.id = UUID.randomUUID();
-        copy.ownerId = userId;
         copy.surveyAccountId = accountId;
         copy.createdByAdminUserId = userId;
         copy.title = source.title + " (kopia)";
