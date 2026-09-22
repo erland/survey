@@ -2,8 +2,8 @@ project: survey-service
 mode: CREATE
 current_step: STEP-44
 current_step_name: Remove legacy owner authorization bridge
-status: implemented_pending_ci
-completed_through: STEP-43
+status: implemented_ci_verified
+completed_through: STEP-44
 release_baseline: 1.0.0
 verification_policy:
   local_static: required
@@ -157,6 +157,6 @@ step_44:
   verification:
     - migration/domain compilation passes in intermediate CI
     - account-scoped backend test migration completed
-    - final CI pending
+    - CI run 116 passed backend, frontend and end-to-end
 next_step: STEP-45
 next_step_name: Multi-user E2E and security hardening
