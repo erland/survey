@@ -25,6 +25,8 @@ class SurveyDomainTest {
         Survey survey = new Survey();
         survey.id = UUID.randomUUID();
         survey.ownerId = ownerId;
+        survey.surveyAccountId = lookupTestAccountId(ownerId);
+        survey.createdByAdminUserId = ownerId;
         survey.title = "Workshop";
         survey.createdAt = Instant.now();
         survey.updatedAt = survey.createdAt;
@@ -53,6 +55,8 @@ class SurveyDomainTest {
             assertTrue(tableExists(c, "survey"));
             assertTrue(tableExists(c, "survey_question"));
             assertTrue(tableExists(c, "question_option"));
+            assertTrue(tableExists(c, "survey_account"));
+            assertTrue(tableExists(c, "survey_account_admin"));
         }
     }
 
@@ -62,6 +66,20 @@ class SurveyDomainTest {
              ResultSet rs = ps.executeQuery()) {
             assertTrue(rs.next(), "test admin must be bootstrapped");
             return rs.getObject(1, UUID.class);
+        } catch (SQLException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    private UUID lookupTestAccountId(UUID adminId) {
+        try (Connection c = dataSource.getConnection();
+             PreparedStatement ps = c.prepareStatement(
+                     "SELECT survey_account_id FROM survey_account_admin WHERE admin_user_id = ? ORDER BY created_at LIMIT 1")) {
+            ps.setObject(1, adminId);
+            try (ResultSet rs = ps.executeQuery()) {
+                assertTrue(rs.next(), "test admin must belong to a survey account");
+                return rs.getObject(1, UUID.class);
+            }
         } catch (SQLException e) {
             throw new IllegalStateException(e);
         }
