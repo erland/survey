@@ -240,7 +240,7 @@ function QuestionResultCard({ result }: { result: QuestionResult }) {
   </article>
 }
 
-function SharePanel({ surveyId, surveyTitle }: { surveyId: string; surveyTitle: string }) {
+function SharePanel({ accountId, surveyId, surveyTitle }: { accountId:string; surveyId: string; surveyTitle: string }) {
   const [runs, setRuns] = useState<SurveyRunView[]>([])
   const [selected, setSelected] = useState<SurveyRunView | null>(null)
   const [busy, setBusy] = useState(false)
@@ -250,14 +250,14 @@ function SharePanel({ surveyId, surveyTitle }: { surveyId: string; surveyTitle: 
 
   async function load() {
     try {
-      const items = await runApi.list(surveyId)
+      const items = await runApi.list(accountId,surveyId)
       setRuns(items)
       if (!selected && items.length > 0) setSelected(items[0])
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Kunde inte läsa genomföranden.')
     }
   }
-  useEffect(() => { void load() }, [surveyId])
+  useEffect(() => { void load() }, [accountId,surveyId])
   useEffect(() => {
     if (!selected) { setSummary(null); setResults([]); return }
     let cancelled = false
@@ -266,7 +266,7 @@ function SharePanel({ surveyId, surveyTitle }: { surveyId: string; surveyTitle: 
 
     async function refreshLiveData() {
       try {
-        const [nextSummary, nextResults] = await Promise.all([runApi.summary(runId), runApi.results(runId)])
+        const [nextSummary, nextResults] = await Promise.all([runApi.summary(accountId,runId), runApi.results(accountId,runId)])
         if (!cancelled) { setSummary(nextSummary); setResults(nextResults) }
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Kunde inte läsa deltagarstatus.')
@@ -281,7 +281,7 @@ function SharePanel({ surveyId, surveyTitle }: { surveyId: string; surveyTitle: 
     }
 
     void refreshLiveData()
-    const events = new EventSource(runApi.eventsUrl(runId), { withCredentials: true })
+    const events = new EventSource(runApi.eventsUrl(accountId,runId), { withCredentials: true })
     const onChange = () => void refreshLiveData()
     for (const type of ['connected', 'participant_started', 'participant_activity', 'response_updated', 'participant_submitted']) {
       events.addEventListener(type, onChange)
@@ -294,13 +294,13 @@ function SharePanel({ surveyId, surveyTitle }: { surveyId: string; surveyTitle: 
       stopFallback()
       events.close()
     }
-  }, [selected?.id])
+  }, [accountId,selected?.id])
 
   async function startRun() {
     setBusy(true); setError('')
     try {
-      const draft = await runApi.create(surveyId, surveyTitle)
-      const opened = await runApi.open(draft.id)
+      const draft = await runApi.create(accountId,surveyId, surveyTitle)
+      const opened = await runApi.open(accountId,draft.id)
       setSelected(opened)
       await load()
     } catch (e) {
@@ -333,7 +333,7 @@ function SharePanel({ surveyId, surveyTitle }: { surveyId: string; surveyTitle: 
     </div>
     <div className="presentation-launch"><button className="primary" onClick={()=>{
       const popup = window.open('', '_blank')
-      void runApi.createPresentationToken(selected.id).then(created => {
+      void runApi.createPresentationToken(accountId,selected.id).then(created => {
         const url = `${window.location.origin}${created.presentationPath}`
         if (popup) { popup.opener = null; popup.location.href = url }
         else setError('Webbläsaren blockerade presentationsfönstret. Tillåt popup-fönster och försök igen.')
@@ -343,21 +343,21 @@ function SharePanel({ surveyId, surveyTitle }: { surveyId: string; surveyTitle: 
       })
     }}>Öppna presentationsläge</button><button onClick={()=>{
       setError('')
-      void runApi.exportResultsJson(selected.id).then(({blob,filename})=>{
+      void runApi.exportResultsJson(accountId,selected.id).then(({blob,filename})=>{
         const url=URL.createObjectURL(blob)
         const anchor=document.createElement('a'); anchor.href=url; anchor.download=filename; anchor.click()
         URL.revokeObjectURL(url)
       }).catch(e=>setError(e instanceof Error?e.message:'Kunde inte exportera resultat.'))
     }}>Exportera resultat (JSON)</button><button onClick={()=>{
       setError('')
-      void runApi.exportResultsCsv(selected.id).then(({blob,filename})=>{
+      void runApi.exportResultsCsv(accountId,selected.id).then(({blob,filename})=>{
         const url=URL.createObjectURL(blob)
         const anchor=document.createElement('a'); anchor.href=url; anchor.download=filename; anchor.click()
         URL.revokeObjectURL(url)
       }).catch(e=>setError(e instanceof Error?e.message:'Kunde inte exportera CSV.'))
     }}>Exportera resultat (CSV)</button><button onClick={()=>{
       setError('')
-      void runApi.exportPackage(selected.id).then(({blob,filename})=>{
+      void runApi.exportPackage(accountId,selected.id).then(({blob,filename})=>{
         const url=URL.createObjectURL(blob)
         const anchor=document.createElement('a'); anchor.href=url; anchor.download=filename; anchor.click()
         URL.revokeObjectURL(url)
@@ -461,19 +461,19 @@ function PresentationView({ token }: { token: string }) {
   </main>
 }
 
-function SurveyEditor({ id, onDone }: { id:string|null; onDone:()=>void }) {
+function SurveyEditor({ accountId, id, onDone }: { accountId:string; id:string|null; onDone:()=>void }) {
   const [model,setModel]=useState<SurveyInput>({title:'',description:'',status:'DRAFT',questions:[]})
   const [loading,setLoading]=useState(Boolean(id)); const [saving,setSaving]=useState(false); const [error,setError]=useState(''); const [saved,setSaved]=useState(false)
-  useEffect(()=>{ if(!id)return; setLoading(true); surveyApi.get(id).then((s:SurveyView)=>setModel({title:s.title,description:s.description??'',status:s.status,questions:s.questions.map(q=>({type:q.type,text:q.text,required:q.required,scaleMin:q.scaleMin,scaleMax:q.scaleMax,scaleMinLabel:q.scaleMinLabel,scaleMaxLabel:q.scaleMaxLabel,options:q.options.map(o=>({value:o.value,label:o.label}))}))})).catch(e=>setError(e instanceof Error?e.message:'Kunde inte läsa enkäten.')).finally(()=>setLoading(false)) },[id])
+  useEffect(()=>{ if(!id)return; setLoading(true); surveyApi.get(accountId,id).then((s:SurveyView)=>setModel({title:s.title,description:s.description??'',status:s.status,questions:s.questions.map(q=>({type:q.type,text:q.text,required:q.required,scaleMin:q.scaleMin,scaleMax:q.scaleMax,scaleMinLabel:q.scaleMinLabel,scaleMaxLabel:q.scaleMaxLabel,options:q.options.map(o=>({value:o.value,label:o.label}))}))})).catch(e=>setError(e instanceof Error?e.message:'Kunde inte läsa enkäten.')).finally(()=>setLoading(false)) },[accountId,id])
   const validation=useMemo(()=>validate(model),[model])
   function updateQuestion(i:number,q:QuestionInput){ setModel({...model,questions:model.questions.map((x,j)=>j===i?q:x)}); setSaved(false) }
   function move(i:number,d:number){ const q=[...model.questions]; const [item]=q.splice(i,1); q.splice(i+d,0,item); setModel({...model,questions:q});setSaved(false) }
-  async function save(){ const errors=validate(model); if(errors.length){ setError(errors.join(' ')); return } setSaving(true);setError('');try{ id?await surveyApi.update(id,model):await surveyApi.create(model);setSaved(true); if(!id) onDone() }catch(e){setError(e instanceof Error?e.message:'Kunde inte spara enkäten.')}finally{setSaving(false)} }
+  async function save(){ const errors=validate(model); if(errors.length){ setError(errors.join(' ')); return } setSaving(true);setError('');try{ id?await surveyApi.update(accountId,id,model):await surveyApi.create(accountId,model);setSaved(true); if(!id) onDone() }catch(e){setError(e instanceof Error?e.message:'Kunde inte spara enkäten.')}finally{setSaving(false)} }
   async function exportDefinition(){
     if(!id) return
     setError('')
     try {
-      const { blob, filename } = await surveyApi.exportDefinition(id)
+      const { blob, filename } = await surveyApi.exportDefinition(accountId,id)
       const url = URL.createObjectURL(blob)
       const anchor = document.createElement('a')
       anchor.href = url; anchor.download = filename; anchor.click()
@@ -486,7 +486,7 @@ function SurveyEditor({ id, onDone }: { id:string|null; onDone:()=>void }) {
     <div className="card form-card"><label>Titel<input value={model.title} onChange={e=>{setModel({...model,title:e.target.value});setSaved(false)}} placeholder="Exempel: DevOps-workshop"/></label><label>Introduktion<textarea rows={3} value={model.description} onChange={e=>{setModel({...model,description:e.target.value});setSaved(false)}} placeholder="Kort instruktion till deltagarna…"/></label></div>
     <div className="section-heading"><div><h2>Frågor</h2><p className="muted">Dra inte runt – använd pilarna för en tydlig och tillgänglig ordning.</p></div><button onClick={()=>setModel({...model,questions:[...model.questions,emptyQuestion()]})}>+ Lägg till fråga</button></div>
     {model.questions.length===0?<div className="card empty"><h3>Inga frågor ännu</h3><p>Lägg till den första frågan. Du kan sedan välja frågetyp.</p><button className="primary" onClick={()=>setModel({...model,questions:[emptyQuestion()]})}>+ Lägg till fråga</button></div>:<div className="question-list">{model.questions.map((q,i)=><QuestionEditor key={i} q={q} index={i} total={model.questions.length} onChange={x=>updateQuestion(i,x)} onMove={d=>move(i,d)} onRemove={()=>setModel({...model,questions:model.questions.filter((_,j)=>j!==i)})}/>)}</div>}
-    {id && <SharePanel surveyId={id} surveyTitle={model.title} />}
+    {id && <SharePanel accountId={accountId} surveyId={id} surveyTitle={model.title} />}
   </section>
 }
 
@@ -664,11 +664,96 @@ export function App() {
   if (presentationMatch) return <PresentationView token={decodeURIComponent(presentationMatch[1])} />
   if (path === '/' || path === '') return <JoinLanding />
 
-  const [auth,setAuth]=useState<{loading:boolean;username:string|null}>({loading:true,username:null})
+  const accountMatch = path.match(/^\/admin\/accounts\/([^/]+)\/?$/)
+  const [auth,setAuth]=useState<{loading:boolean;username:string|null;systemAdmin:boolean}>({loading:true,username:null,systemAdmin:false})
+  const [accounts,setAccounts]=useState<SurveyAccountMembership[]>([])
+  const [accountsLoading,setAccountsLoading]=useState(true)
+  const [accountId,setAccountId]=useState<string|null>(accountMatch ? decodeURIComponent(accountMatch[1]) : null)
   const [screen,setScreen]=useState<Screen>({kind:'list'})
-  useEffect(()=>{ authApi.me().then(x=>setAuth({loading:false,username:x.username})).catch((e)=>{ if(e instanceof ApiError && e.status===401)setAuth({loading:false,username:null}); else setAuth({loading:false,username:null})}) },[])
+
+  async function loadAccounts(){
+    setAccountsLoading(true)
+    try {
+      const items=await accountApi.list()
+      setAccounts(items)
+      if (!accountId && items.length===1) {
+        selectAccount(items[0].id,true)
+      } else if (accountId && !items.some(item=>item.id===accountId)) {
+        setAccountId(null)
+        window.history.replaceState(null,'','/admin')
+      }
+    } catch {
+      setAccounts([])
+    } finally {
+      setAccountsLoading(false)
+    }
+  }
+
+  function selectAccount(id:string,replace=false){
+    setAccountId(id)
+    setScreen({kind:'list'})
+    const target=`/admin/accounts/${encodeURIComponent(id)}`
+    if(replace) window.history.replaceState(null,'',target)
+    else window.history.pushState(null,'',target)
+  }
+
+  function clearAccount(){
+    setAccountId(null)
+    setScreen({kind:'list'})
+    window.history.pushState(null,'','/admin')
+  }
+
+  useEffect(()=>{
+    authApi.me().then(x=>{
+      setAuth({loading:false,username:x.username,systemAdmin:x.systemAdmin})
+    }).catch(()=>setAuth({loading:false,username:null,systemAdmin:false}))
+  },[])
+
+  useEffect(()=>{
+    if(auth.username) void loadAccounts()
+    else { setAccounts([]); setAccountsLoading(false) }
+  },[auth.username])
+
   if (!path.startsWith('/admin')) return <JoinLanding />
-  if(auth.loading) return <main className="center-shell"><div className="card">Startar…</div></main>
-  if(!auth.username) return <Login onLoggedIn={username=>setAuth({loading:false,username})}/>
-  return <><a className="skip-link" href="#main-content">Hoppa till huvudinnehåll</a><header className="topbar"><div><strong>Survey Service</strong><span>Admin</span></div><div><span className="username">{auth.username}</span><button onClick={()=>void authApi.logout().then(()=>setAuth({loading:false,username:null}))}>Logga ut</button></div></header><main id="main-content" className="app-shell" tabIndex={-1}>{screen.kind==='list'?<SurveyList onEdit={id=>setScreen({kind:'edit',id})}/>:<SurveyEditor id={screen.id} onDone={()=>setScreen({kind:'list'})}/>}</main></>
+  if(auth.loading || (auth.username && accountsLoading)) return <main className="center-shell"><div className="card">Startar…</div></main>
+  if(!auth.username) return <Login onLoggedIn={username=>{
+    setAuth({loading:true,username,systemAdmin:false})
+    authApi.me().then(x=>setAuth({loading:false,username:x.username,systemAdmin:x.systemAdmin})).catch(()=>setAuth({loading:false,username:null,systemAdmin:false}))
+  }}/>
+
+  if (!accountId && screen.kind !== 'system') {
+    return <AccountChooser accounts={accounts} onChoose={id=>selectAccount(id)} systemAdmin={auth.systemAdmin} onSystem={()=>setScreen({kind:'system'})} />
+  }
+
+  const currentAccount=accountId ? accounts.find(a=>a.id===accountId) ?? null : null
+
+  if (screen.kind==='system') {
+    return <><a className="skip-link" href="#main-content">Hoppa till huvudinnehåll</a>
+      <header className="topbar"><div><strong>Survey Service</strong><span>Systemadmin</span></div><div><span className="username">{auth.username}</span><button onClick={()=>void authApi.logout().then(()=>setAuth({loading:false,username:null,systemAdmin:false}))}>Logga ut</button></div></header>
+      <main id="main-content" className="app-shell" tabIndex={-1}><SystemAccountPanel onDone={()=>accountId?setScreen({kind:'list'}):setScreen({kind:'list'})} onChanged={loadAccounts}/></main></>
+  }
+
+  if (!currentAccount) {
+    return <AccountChooser accounts={accounts} onChoose={id=>selectAccount(id)} systemAdmin={auth.systemAdmin} onSystem={()=>setScreen({kind:'system'})} />
+  }
+
+  return <><a className="skip-link" href="#main-content">Hoppa till huvudinnehåll</a>
+    <header className="topbar">
+      <div><strong>Survey Service</strong><span>Admin</span><span className="account-name">{currentAccount.name}</span></div>
+      <div className="topbar-actions">
+        {accounts.length>1&&<button onClick={clearAccount}>Byt konto</button>}
+        <button onClick={()=>setScreen({kind:'admins'})}>Administratörer</button>
+        {auth.systemAdmin&&<button onClick={()=>setScreen({kind:'system'})}>Systemadministration</button>}
+        <span className="username">{auth.username}</span>
+        <button onClick={()=>void authApi.logout().then(()=>setAuth({loading:false,username:null,systemAdmin:false}))}>Logga ut</button>
+      </div>
+    </header>
+    <main id="main-content" className="app-shell" tabIndex={-1}>
+      {screen.kind==='list'
+        ? <SurveyList accountId={currentAccount.id} onEdit={id=>setScreen({kind:'edit',id})}/>
+        : screen.kind==='edit'
+          ? <SurveyEditor accountId={currentAccount.id} id={screen.id} onDone={()=>setScreen({kind:'list'})}/>
+          : <AccountAdminPanel accountId={currentAccount.id} onDone={()=>setScreen({kind:'list'})}/>}
+    </main>
+  </>
 }
