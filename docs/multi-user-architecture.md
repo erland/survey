@@ -228,3 +228,18 @@ STEP-38 ska endast införa domän och migration:
 - repositories/entities och migrationstester.
 
 Account-scoped API och UI införs först i senare steg.
+
+
+## STEP-38 övergångsläge
+
+Efter STEP-38 finns både `survey.owner_id` och `survey.survey_account_id`.
+
+Detta är avsiktligt:
+
+- `survey_account_id` är det framtida och obligatoriska verksamhetsägandet,
+- `owner_id` används temporärt av befintliga API:er för att undvika att STEP-38 samtidigt blir en full authorization-migrering,
+- all ny survey-data får både `survey_account_id` och `created_by_admin_user_id`,
+- STEP-39 flyttar all authorization till account membership,
+- först därefter tas `owner_id` bort i en separat migration.
+
+Denna övergång gör datamigreringen isolerad och bakåtkompatibel medan tenant-isoleringen kan införas och testas separat.
