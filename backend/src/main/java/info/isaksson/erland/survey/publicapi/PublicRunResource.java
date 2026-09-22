@@ -9,21 +9,14 @@ import jakarta.ws.rs.core.MediaType;
 
 import static info.isaksson.erland.survey.publicapi.PublicRunDtos.RunLookupResponse;
 
-@Path("/api/public/runs")
+@Path("/api/public/runs/{publicId}")
 @Produces(MediaType.APPLICATION_JSON)
 public class PublicRunResource {
 
     @Inject PublicRunLookupService lookupService;
 
     @GET
-    @Path("/{publicId}")
     public RunLookupResponse byPublicId(@PathParam("publicId") String publicId) {
         return lookupService.findByPublicId(publicId);
-    }
-
-    @GET
-    @Path("/join/{joinCode}")
-    public RunLookupResponse byJoinCode(@PathParam("joinCode") String joinCode) {
-        return lookupService.findByJoinCode(joinCode);
     }
 }
