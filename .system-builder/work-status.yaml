@@ -2,8 +2,8 @@ project: survey-service
 mode: CREATE
 current_step: STEP-38
 current_step_name: Survey account domain and data migration
-status: implemented_pending_ci
-completed_through: STEP-37
+status: implemented_ci_verified
+completed_through: STEP-38
 release_baseline: 1.0.0
 verification_policy:
   local_static: required
@@ -38,6 +38,6 @@ step_38:
     - migration schema tests added
     - survey account persistence tests added
     - bootstrap system-admin membership test added
-    - CI pending
+    - CI run 39 passed backend, frontend and end-to-end
 next_step: STEP-39
 next_step_name: Account-scoped authorization
