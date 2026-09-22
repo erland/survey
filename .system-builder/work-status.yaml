@@ -1,8 +1,8 @@
 project: survey-service
 mode: CREATE
-current_step: STEP-45
-current_step_name: Multi-user E2E and security hardening
-status: implemented_ci_verified
+current_step: STEP-46
+current_step_name: Repair cascading survey deletion
+status: implemented_pending_ci
 completed_through: STEP-45
 release_baseline: 1.0.0
 verification_policy:
@@ -178,5 +178,17 @@ release_readiness:
   warnings:
     - release version and tag are intentionally deferred to the release step
     - production smoke test is pending after merge/deployment
-next_step: MERGE
-next_step_name: Merge PR #3 after human approval
+next_step: VERIFY
+next_step_name: Verify survey deletion repair in CI
+
+step_46:
+  changes:
+    - survey_run.survey_id now cascades when a survey is deleted
+    - deleting a survey removes its runs, participant sessions, responses, response values and presentation tokens through existing cascade relations
+    - regression coverage verifies runs disappear when their survey is deleted
+    - survey deletion confirmation explicitly warns that runs and collected responses are permanently removed
+  invariants:
+    - survey deletion is a permanent aggregate deletion
+    - no orphan survey runs or participant data remain after survey deletion
+  verification:
+    - pending CI

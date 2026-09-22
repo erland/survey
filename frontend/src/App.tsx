@@ -186,7 +186,7 @@ function SurveyList({ accountId, onEdit }: { accountId:string; onEdit: (id: stri
   async function load() { setBusy(true); setError(''); try { setItems(await surveyApi.list(accountId)) } catch(e){ setError(e instanceof Error ? e.message : 'Kunde inte läsa enkäter.') } finally { setBusy(false) } }
   useEffect(()=>{ void load() },[accountId])
   async function copy(id: string) { try { await surveyApi.copy(accountId,id); await load() } catch(e){ setError(e instanceof Error ? e.message : 'Kopiering misslyckades.') } }
-  async function remove(id: string, title: string) { if (!confirm(`Radera "${title}"?`)) return; try { await surveyApi.remove(accountId,id); await load() } catch(e){ setError(e instanceof Error ? e.message : 'Radering misslyckades.') } }
+  async function remove(id: string, title: string) { if (!confirm(`Radera "${title}" permanent? Alla genomföranden och insamlade svar för enkäten tas också bort.`)) return; try { await surveyApi.remove(accountId,id); await load() } catch(e){ setError(e instanceof Error ? e.message : 'Radering misslyckades.') } }
   async function importFile(file: File | undefined) {
     if (!file) return
     setError('')
