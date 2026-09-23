@@ -149,7 +149,8 @@ test('multi-user accounts stay isolated and administrators can manage membership
   const surveyB = `Tenant B survey ${suffix}`
 
   await login(page)
-  await page.getByRole('button', { name: 'Systemadministration' }).click()
+  await page.getByRole('button', { name: 'Enkätkonton' }).click()
+  await expect(page).toHaveURL(/\/admin\/system\/accounts\/?$/)
   await expect(page.getByRole('heading', { name: 'Enkätkonton', exact: true })).toBeVisible()
 
   for (const [accountName, username, password] of [
@@ -217,7 +218,7 @@ test('multi-user accounts stay isolated and administrators can manage membership
 
   await logout(page)
   await login(page)
-  await page.getByRole('button', { name: 'Systemadministration' }).click()
+  await page.getByRole('button', { name: 'Enkätkonton' }).click()
   const sharedSystemRow = page.locator('.admin-row').filter({ hasText: sharedAdmin })
   await sharedSystemRow.getByRole('button', { name: 'Skapa återställningslänk' }).click()
   await expect(page.getByRole('heading', { name: `Återställ lösenord för ${sharedAdmin}` })).toBeVisible()
