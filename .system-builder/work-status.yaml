@@ -3,7 +3,7 @@ mode: CHANGE
 current_step: STEP-52
 current_step_name: Survey account lifecycle management
 status: implemented_ci_verified
-completed_through: STEP-51
+completed_through: STEP-52
 release_baseline: 1.0.0
 verification_policy:
   local_static: required
@@ -178,8 +178,8 @@ release_readiness:
   warnings:
     - release version and tag are intentionally deferred to the release step
     - production smoke test is pending after merge/deployment
-next_step: VERIFY
-next_step_name: Verify survey account lifecycle management in CI
+next_step: STEP-53
+next_step_name: Refine per-account administrator management and recovery actions
 
 step_46:
   changes:
@@ -316,4 +316,4 @@ step_52:
     - backend integration test covers confirmation requirement and deletion of an account containing an administrator, survey and run
     - backend integration test verifies the administrator identity and login remain after account deletion
     - Playwright covers rename and confirmed account deletion controls
-    - pending CI
+    - CI run 167 passed backend, frontend and end-to-end
