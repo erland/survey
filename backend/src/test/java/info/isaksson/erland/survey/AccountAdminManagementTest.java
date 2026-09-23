@@ -34,6 +34,8 @@ class AccountAdminManagementTest {
                 .then().statusCode(201)
                 .body("username", equalTo(newUsername))
                 .body("role", equalTo("ADMIN"))
+                .body("newlyCreatedUser", equalTo(true))
+                .body("membershipCreated", equalTo(true))
                 .extract();
         String newUserId = created.path("userId");
         String setupPath = created.path("initialPasswordPath");
@@ -81,17 +83,39 @@ class AccountAdminManagementTest {
                 .body("{\"username\":\"" + sharedUsername + "\"}")
                 .post("/api/admin/accounts/" + secondAccount + "/admins")
                 .then().statusCode(201)
-                .body("username", equalTo(sharedUsername));
+                .body("username", equalTo(sharedUsername))
+                .body("initialPasswordPath", org.hamcrest.Matchers.nullValue())
+                .body("newlyCreatedUser", equalTo(false))
+                .body("membershipCreated", equalTo(true));
+
+        UUID unrelatedAccount = createAccountWithAdmin("unrelated-" + UUID.randomUUID());
+        String sharedCookie = login(sharedUsername);
 
         given()
-                .cookie("survey_admin_session", login(sharedUsername))
+                .cookie("survey_admin_session", sharedCookie)
                 .get("/api/admin/accounts/" + firstAccount + "/surveys")
                 .then().statusCode(200);
 
         given()
-                .cookie("survey_admin_session", login(sharedUsername))
+                .cookie("survey_admin_session", sharedCookie)
                 .get("/api/admin/accounts/" + secondAccount + "/surveys")
                 .then().statusCode(200);
+
+        given()
+                .cookie("survey_admin_session", sharedCookie)
+                .get("/api/admin/accounts/" + unrelatedAccount + "/surveys")
+                .then().statusCode(403)
+                .body("code", equalTo("ACCOUNT_ACCESS_DENIED"));
+
+        given()
+                .cookie("survey_admin_session", secondCookie)
+                .contentType(ContentType.JSON)
+                .body("{\"username\":\"" + sharedUsername + "\"}")
+                .post("/api/admin/accounts/" + secondAccount + "/admins")
+                .then().statusCode(201)
+                .body("newlyCreatedUser", equalTo(false))
+                .body("membershipCreated", equalTo(false))
+                .body("initialPasswordPath", org.hamcrest.Matchers.nullValue());
     }
 
     @Test
