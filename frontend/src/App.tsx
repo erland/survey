@@ -166,16 +166,24 @@ function AccountAdminPanel({ accountId, onDone }: { accountId:string; onDone:()=
   const [admins,setAdmins]=useState<Awaited<ReturnType<typeof accountApi.admins>>>([])
   const [username,setUsername]=useState('')
   const [invite,setInvite]=useState<{path:string;expiresAt:string|null}|null>(null)
+  const [addStatus,setAddStatus]=useState('')
   const [error,setError]=useState('')
   const [busy,setBusy]=useState(false)
   async function load(){ try{ setAdmins(await accountApi.admins(accountId)); setError('') }catch(e){ setError(e instanceof Error?e.message:'Kunde inte läsa administratörer.') } }
   useEffect(()=>{ void load() },[accountId])
   async function add(e:React.FormEvent){
-    e.preventDefault();setBusy(true);setError('');setInvite(null)
+    e.preventDefault();setBusy(true);setError('');setInvite(null);setAddStatus('')
     try{
       const created=await accountApi.addAdmin(accountId,username)
       setUsername('')
-      if(created.initialPasswordPath) setInvite({path:created.initialPasswordPath,expiresAt:created.initialPasswordExpiresAt})
+      if(created.initialPasswordPath) {
+        setInvite({path:created.initialPasswordPath,expiresAt:created.initialPasswordExpiresAt})
+        setAddStatus(`Ny administratör ${created.username} skapades och lades till i enkätkontot. Skicka registreringslänken till personen.`)
+      } else if(created.membershipCreated) {
+        setAddStatus(`Befintlig administratör ${created.username} lades till i enkätkontot. Ingen registreringslänk behövs.`)
+      } else {
+        setAddStatus(`${created.username} är redan administratör i enkätkontot.`)
+      }
       await load()
     }catch(e){setError(e instanceof Error?e.message:'Kunde inte lägga till administratören.')}
     finally{setBusy(false)}
@@ -184,9 +192,10 @@ function AccountAdminPanel({ accountId, onDone }: { accountId:string; onDone:()=
   return <section>
     <div className="page-heading"><div><button className="back" onClick={onDone}>← Enkäter</button><p className="eyebrow">Enkätkonto</p><h1>Administratörer</h1><p className="muted">Hantera vilka administratörer som får arbeta i detta enkätkonto.</p></div></div>
     {error&&<div className="error" role="alert">{error}</div>}
+    {addStatus&&<div role="status" className="card">{addStatus}</div>}
     <div className="card admin-management">
       <h2>Lägg till administratör</h2>
-      <p className="muted">Nya administratörer får en engångslänk där de själva sätter sitt första lösenord.</p>
+      <p className="muted">Ange personens e-postadress. Om personen är ny skapas en engångslänk för första lösenordet. Om personen redan finns läggs bara medlemskapet till i detta enkätkonto och ingen ny registreringslänk skapas.</p>
       <form onSubmit={add} className="admin-add-form">
         <label>E-postadress<input type="email" value={username} onChange={e=>setUsername(e.target.value)} required /></label>
         <button className="primary" disabled={busy||!username.trim()}>{busy?'Lägger till…':'Lägg till'}</button>
@@ -289,14 +298,14 @@ function SystemAccountPanel({ onDone, onChanged }: { onDone:()=>void; onChanged:
 
     <div className="card"><h2>Alla enkätkonton</h2><p className="muted">Bootstrap-administratören hanterar enkätkontonas livscykel här. Enkätadministratörer får endast åtkomst till konton de uttryckligen är kopplade till. Ett konto kan tas bort även om det innehåller enkäter, men då måste den permanenta borttagningen bekräftas.</p><div className="admin-list">{accounts.map(account=><div className="admin-row" key={account.id}><div><strong>{account.name}</strong><div className="muted">{account.surveyCount} enkät{account.surveyCount===1?'':'er'} · {account.adminCount} administratör{account.adminCount===1?'':'er'}</div></div><div className="actions"><button onClick={()=>void renameAccount(account.id,account.name)}>Byt namn</button><button className="danger-ghost" onClick={()=>void deleteAccount(account)}>Ta bort konto</button></div></div>)}</div></div>
 
-    <div className="card"><h2>Administratörskonton</h2><p className="muted">Konton utan enkätkonto-medlemskap kan tas bort permanent efter att de har inaktiverats. Konton med historiska referenser kan behöva behållas.</p>
+    <div className="card"><h2>Administratörskonton</h2><p className="muted">Bootstrap-administratören kan skapa en ny återställningslänk för en aktiv administratör som har glömt sitt lösenord. Konton utan enkätkonto-medlemskap kan tas bort permanent efter att de har inaktiverats.</p>
       <div className="admin-list">{admins.map(admin=><div className="admin-row" key={admin.id}>
         <div>
           <strong>{admin.username}</strong>
           <div className="muted">{admin.systemAdmin?'Systemadmin · ':''}{admin.active?'Aktiv':'Inaktiv'} · {admin.accountCount} enkätkonto{admin.accountCount===1?'':'n'}</div>
         </div>
         <div className="actions">
-          {!admin.systemAdmin && admin.active && <button onClick={()=>void createPasswordResetLink(admin.id,admin.username)}>Skapa återställningslänk</button>}
+          {!admin.systemAdmin && admin.active && <button onClick={()=>void createPasswordResetLink(admin.id,admin.username)}>Ny återställningslänk</button>}
           {!admin.systemAdmin && (admin.active
             ? <button onClick={()=>void changeAdmin(admin.id,'deactivate')}>Inaktivera</button>
             : <button onClick={()=>void changeAdmin(admin.id,'activate')}>Återaktivera</button>)}
