@@ -106,6 +106,89 @@ public class SystemAccountService {
         }
     }
 
+    public AccountSummary rename(AdminPrincipal principal, UUID accountId, RenameAccountRequest request) {
+        requireSystemAdmin(principal);
+        String name = validateAccountName(request == null ? null : request.name());
+
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement ps = connection.prepareStatement("""
+                     UPDATE survey_account
+                     SET name = ?, updated_at = CURRENT_TIMESTAMP
+                     WHERE id = ?
+                     """)) {
+            ps.setString(1, name);
+            ps.setObject(2, accountId);
+            if (ps.executeUpdate() == 0) {
+                throw new ApiException(404, "ACCOUNT_NOT_FOUND", "Enkätkontot finns inte.");
+            }
+        } catch (ApiException e) {
+            throw e;
+        } catch (SQLException e) {
+            throw new IllegalStateException("Could not rename survey account", e);
+        }
+        return list(principal).stream()
+                .filter(account -> account.id().equals(accountId))
+                .findFirst()
+                .orElseThrow(() -> new ApiException(404, "ACCOUNT_NOT_FOUND", "Enkätkontot finns inte."));
+    }
+
+    public void delete(AdminPrincipal principal, UUID accountId, boolean confirmed) {
+        requireSystemAdmin(principal);
+        if (!confirmed) {
+            throw new ApiException(400, "ACCOUNT_DELETE_CONFIRMATION_REQUIRED",
+                    "Bekräfta att enkätkontot och alla dess enkäter ska tas bort permanent.");
+        }
+
+        try (Connection connection = dataSource.getConnection()) {
+            connection.setAutoCommit(false);
+            try {
+                try (PreparedStatement lock = connection.prepareStatement(
+                        "SELECT id FROM survey_account WHERE id = ? FOR UPDATE")) {
+                    lock.setObject(1, accountId);
+                    try (ResultSet rs = lock.executeQuery()) {
+                        if (!rs.next()) {
+                            throw new ApiException(404, "ACCOUNT_NOT_FOUND", "Enkätkontot finns inte.");
+                        }
+                    }
+                }
+
+                try (PreparedStatement deleteSurveys = connection.prepareStatement(
+                        "DELETE FROM survey WHERE survey_account_id = ?")) {
+                    deleteSurveys.setObject(1, accountId);
+                    deleteSurveys.executeUpdate();
+                }
+
+                try (PreparedStatement deleteAccount = connection.prepareStatement(
+                        "DELETE FROM survey_account WHERE id = ?")) {
+                    deleteAccount.setObject(1, accountId);
+                    deleteAccount.executeUpdate();
+                }
+
+                connection.commit();
+            } catch (RuntimeException | SQLException e) {
+                connection.rollback();
+                throw e;
+            } finally {
+                connection.setAutoCommit(true);
+            }
+        } catch (ApiException e) {
+            throw e;
+        } catch (SQLException e) {
+            throw new IllegalStateException("Could not delete survey account", e);
+        }
+    }
+
+    private String validateAccountName(String value) {
+        if (value == null || value.isBlank()) {
+            throw new ApiException(400, "INVALID_ACCOUNT", "Kontonamn måste anges.");
+        }
+        String name = value.trim();
+        if (name.length() > 300) {
+            throw new ApiException(400, "INVALID_ACCOUNT", "Kontonamn får vara högst 300 tecken.");
+        }
+        return name;
+    }
+
     private AdminResolution resolveOrCreateAdmin(Connection connection, String username) throws SQLException {
         try (PreparedStatement ps = connection.prepareStatement("""
                 SELECT id, username, active
@@ -141,12 +224,7 @@ public class SystemAccountService {
     }
 
     private void validate(CreateAccountRequest request) {
-        if (request == null || request.accountName() == null || request.accountName().isBlank()) {
-            throw new ApiException(400, "INVALID_ACCOUNT", "Kontonamn måste anges.");
-        }
-        if (request.accountName().trim().length() > 300) {
-            throw new ApiException(400, "INVALID_ACCOUNT", "Kontonamn får vara högst 300 tecken.");
-        }
+        validateAccountName(request == null ? null : request.accountName());
         if (request.adminUsername() == null || request.adminUsername().isBlank()) {
             throw new ApiException(400, "INVALID_ADMIN", "Första administratörens e-postadress eller befintliga användarnamn måste anges.");
         }
@@ -167,6 +245,7 @@ public class SystemAccountService {
     private record AdminResolution(UUID userId, String loginName, boolean newlyCreated) {}
 
     public record CreateAccountRequest(String accountName, String adminUsername, String adminPassword) {}
+    public record RenameAccountRequest(String name) {}
     public record CreatedAccount(
             UUID id,
             String name,
