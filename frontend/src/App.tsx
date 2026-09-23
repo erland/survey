@@ -158,7 +158,7 @@ function AccountChooser({ accounts, onChoose, systemAdmin, onSystem, onPassword 
           <button className="account-choice" key={account.id} onClick={()=>onChoose(account.id)}>
             <strong>{account.name}</strong><span>{account.role}</span>
           </button>)}</div>}
-    <div className="system-entry"><button onClick={onPassword}>Ändra lösenord</button>{systemAdmin && <button onClick={onSystem}>Systemadministration</button>}</div>
+    <div className="system-entry"><button onClick={onPassword}>Ändra lösenord</button>{systemAdmin && <button onClick={onSystem}>Enkätkonton</button>}</div>
   </section></main>
 }
 
@@ -166,16 +166,24 @@ function AccountAdminPanel({ accountId, onDone }: { accountId:string; onDone:()=
   const [admins,setAdmins]=useState<Awaited<ReturnType<typeof accountApi.admins>>>([])
   const [username,setUsername]=useState('')
   const [invite,setInvite]=useState<{path:string;expiresAt:string|null}|null>(null)
+  const [addStatus,setAddStatus]=useState('')
   const [error,setError]=useState('')
   const [busy,setBusy]=useState(false)
   async function load(){ try{ setAdmins(await accountApi.admins(accountId)); setError('') }catch(e){ setError(e instanceof Error?e.message:'Kunde inte läsa administratörer.') } }
   useEffect(()=>{ void load() },[accountId])
   async function add(e:React.FormEvent){
-    e.preventDefault();setBusy(true);setError('');setInvite(null)
+    e.preventDefault();setBusy(true);setError('');setInvite(null);setAddStatus('')
     try{
       const created=await accountApi.addAdmin(accountId,username)
       setUsername('')
-      if(created.initialPasswordPath) setInvite({path:created.initialPasswordPath,expiresAt:created.initialPasswordExpiresAt})
+      if(created.initialPasswordPath) {
+        setInvite({path:created.initialPasswordPath,expiresAt:created.initialPasswordExpiresAt})
+        setAddStatus(`Ny administratör ${created.username} skapades och lades till i enkätkontot. Skicka registreringslänken till personen.`)
+      } else if(created.membershipCreated) {
+        setAddStatus(`Befintlig administratör ${created.username} lades till i enkätkontot. Ingen registreringslänk behövs.`)
+      } else {
+        setAddStatus(`${created.username} är redan administratör i enkätkontot.`)
+      }
       await load()
     }catch(e){setError(e instanceof Error?e.message:'Kunde inte lägga till administratören.')}
     finally{setBusy(false)}
@@ -184,9 +192,10 @@ function AccountAdminPanel({ accountId, onDone }: { accountId:string; onDone:()=
   return <section>
     <div className="page-heading"><div><button className="back" onClick={onDone}>← Enkäter</button><p className="eyebrow">Enkätkonto</p><h1>Administratörer</h1><p className="muted">Hantera vilka administratörer som får arbeta i detta enkätkonto.</p></div></div>
     {error&&<div className="error" role="alert">{error}</div>}
+    {addStatus&&<div role="status" className="card">{addStatus}</div>}
     <div className="card admin-management">
       <h2>Lägg till administratör</h2>
-      <p className="muted">Nya administratörer får en engångslänk där de själva sätter sitt första lösenord.</p>
+      <p className="muted">Ange personens e-postadress. Om personen är ny skapas en engångslänk för första lösenordet. Om personen redan finns läggs bara medlemskapet till i detta enkätkonto och ingen ny registreringslänk skapas.</p>
       <form onSubmit={add} className="admin-add-form">
         <label>E-postadress<input type="email" value={username} onChange={e=>setUsername(e.target.value)} required /></label>
         <button className="primary" disabled={busy||!username.trim()}>{busy?'Lägger till…':'Lägg till'}</button>
@@ -230,6 +239,28 @@ function SystemAccountPanel({ onDone, onChanged }: { onDone:()=>void; onChanged:
     finally{setBusy(false)}
   }
 
+  async function renameAccount(accountId:string,currentName:string){
+    const nextName=prompt('Nytt namn på enkätkontot:',currentName)
+    if(nextName===null || nextName.trim()==='' || nextName.trim()===currentName) return
+    setError('')
+    try{
+      await systemApi.renameAccount(accountId,nextName.trim())
+      await Promise.all([load(),onChanged()])
+    }catch(e){setError(e instanceof Error?e.message:'Kunde inte byta namn på enkätkontot.')}
+  }
+
+  async function deleteAccount(account:{id:string;name:string;surveyCount:number;adminCount:number}){
+    const warning=account.surveyCount>0
+      ? `Ta bort enkätkontot "${account.name}" permanent? Kontot innehåller ${account.surveyCount} enkät${account.surveyCount===1?'':'er'} som också kommer att tas bort, inklusive genomföranden och insamlade svar. Administratörernas användarkonton raderas inte.`
+      : `Ta bort enkätkontot "${account.name}" permanent? Administratörskopplingarna till kontot tas bort, men användarkontona behålls.`
+    if(!confirm(warning)) return
+    setError('')
+    try{
+      await systemApi.deleteAccount(account.id,true)
+      await Promise.all([load(),onChanged()])
+    }catch(e){setError(e instanceof Error?e.message:'Kunde inte ta bort enkätkontot.')}
+  }
+
   async function createPasswordResetLink(userId:string, username:string){
     setError('');setResetLink(null)
     try{
@@ -255,7 +286,7 @@ function SystemAccountPanel({ onDone, onChanged }: { onDone:()=>void; onChanged:
   }
 
   return <section>
-    <div className="page-heading"><div><button className="back" onClick={onDone}>← Tillbaka</button><p className="eyebrow">Systemadministration</p><h1>Enkätkonton</h1></div></div>
+    <div className="page-heading"><div><button className="back" onClick={onDone}>← Tillbaka</button><p className="eyebrow">Bootstrap-administration</p><h1>Enkätkonton</h1></div></div>
     {error&&<div className="error" role="alert">{error}</div>}
     <div className="card admin-management"><h2>Skapa enkätkonto</h2><p className="muted">Om den första administratören är ny skapas en engångslänk för att sätta lösenordet.</p><form onSubmit={create} className="admin-add-form">
       <label>Kontonamn<input value={name} onChange={e=>setName(e.target.value)} required /></label>
@@ -265,16 +296,16 @@ function SystemAccountPanel({ onDone, onChanged }: { onDone:()=>void; onChanged:
     {invite&&<InviteLink path={invite.path} expiresAt={invite.expiresAt}/>}
     {resetLink&&<InviteLink path={resetLink.path} expiresAt={resetLink.expiresAt} title={`Återställ lösenord för ${resetLink.username}`}/>}
 
-    <div className="card"><h2>Alla enkätkonton</h2><div className="admin-list">{accounts.map(account=><div className="admin-row" key={account.id}><div><strong>{account.name}</strong><div className="muted">{account.adminCount} administratör{account.adminCount===1?'':'er'}</div></div></div>)}</div></div>
+    <div className="card"><h2>Alla enkätkonton</h2><p className="muted">Bootstrap-administratören hanterar enkätkontonas livscykel här. Enkätadministratörer får endast åtkomst till konton de uttryckligen är kopplade till. Ett konto kan tas bort även om det innehåller enkäter, men då måste den permanenta borttagningen bekräftas.</p><div className="admin-list">{accounts.map(account=><div className="admin-row" key={account.id}><div><strong>{account.name}</strong><div className="muted">{account.surveyCount} enkät{account.surveyCount===1?'':'er'} · {account.adminCount} administratör{account.adminCount===1?'':'er'}</div></div><div className="actions"><button onClick={()=>void renameAccount(account.id,account.name)}>Byt namn</button><button className="danger-ghost" onClick={()=>void deleteAccount(account)}>Ta bort konto</button></div></div>)}</div></div>
 
-    <div className="card"><h2>Administratörskonton</h2><p className="muted">Konton utan enkätkonto-medlemskap kan tas bort permanent efter att de har inaktiverats. Konton med historiska referenser kan behöva behållas.</p>
+    <div className="card"><h2>Administratörskonton</h2><p className="muted">Bootstrap-administratören kan skapa en ny återställningslänk för en aktiv administratör som har glömt sitt lösenord. Konton utan enkätkonto-medlemskap kan tas bort permanent efter att de har inaktiverats.</p>
       <div className="admin-list">{admins.map(admin=><div className="admin-row" key={admin.id}>
         <div>
           <strong>{admin.username}</strong>
           <div className="muted">{admin.systemAdmin?'Systemadmin · ':''}{admin.active?'Aktiv':'Inaktiv'} · {admin.accountCount} enkätkonto{admin.accountCount===1?'':'n'}</div>
         </div>
         <div className="actions">
-          {!admin.systemAdmin && admin.active && <button onClick={()=>void createPasswordResetLink(admin.id,admin.username)}>Skapa återställningslänk</button>}
+          {!admin.systemAdmin && admin.active && <button onClick={()=>void createPasswordResetLink(admin.id,admin.username)}>Ny återställningslänk</button>}
           {!admin.systemAdmin && (admin.active
             ? <button onClick={()=>void changeAdmin(admin.id,'deactivate')}>Inaktivera</button>
             : <button onClick={()=>void changeAdmin(admin.id,'activate')}>Återaktivera</button>)}
@@ -821,18 +852,19 @@ export function App() {
   if (path === '/admin/set-password') return <SetPassword token={new URLSearchParams(window.location.search).get('token')} />
 
   const accountMatch = path.match(/^\/admin\/accounts\/([^/]+)\/?$/)
+  const systemAccountsPath = /^\/admin\/system\/accounts\/?$/.test(path)
   const [auth,setAuth]=useState<{loading:boolean;username:string|null;systemAdmin:boolean}>({loading:true,username:null,systemAdmin:false})
   const [accounts,setAccounts]=useState<SurveyAccountMembership[]>([])
   const [accountsLoading,setAccountsLoading]=useState(true)
   const [accountId,setAccountId]=useState<string|null>(accountMatch ? decodeURIComponent(accountMatch[1]) : null)
-  const [screen,setScreen]=useState<Screen>({kind:'list'})
+  const [screen,setScreen]=useState<Screen>(systemAccountsPath?{kind:'system'}:{kind:'list'})
 
   async function loadAccounts(){
     setAccountsLoading(true)
     try {
       const items=await accountApi.list()
       setAccounts(items)
-      if (!accountId && items.length===1) {
+      if (!accountId && items.length===1 && !systemAccountsPath) {
         selectAccount(items[0].id,true)
       } else if (accountId && !items.some(item=>item.id===accountId)) {
         setAccountId(null)
@@ -857,6 +889,17 @@ export function App() {
     setAccountId(null)
     setScreen({kind:'list'})
     window.history.pushState(null,'','/admin')
+  }
+
+  function openSystemAccounts(){
+    setScreen({kind:'system'})
+    window.history.pushState(null,'','/admin/system/accounts')
+  }
+
+  function closeSystemAccounts(){
+    setScreen({kind:'list'})
+    if(accountId) window.history.pushState(null,'',`/admin/accounts/${encodeURIComponent(accountId)}`)
+    else window.history.pushState(null,'','/admin')
   }
 
   useEffect(()=>{
@@ -884,19 +927,23 @@ export function App() {
   }
 
   if (!accountId && screen.kind !== 'system') {
-    return <AccountChooser accounts={accounts} onChoose={id=>selectAccount(id)} systemAdmin={auth.systemAdmin} onSystem={()=>setScreen({kind:'system'})} onPassword={()=>setScreen({kind:'password',returnTo:'list'})} />
+    return <AccountChooser accounts={accounts} onChoose={id=>selectAccount(id)} systemAdmin={auth.systemAdmin} onSystem={openSystemAccounts} onPassword={()=>setScreen({kind:'password',returnTo:'list'})} />
   }
 
   const currentAccount=accountId ? accounts.find(a=>a.id===accountId) ?? null : null
 
+  if (screen.kind==='system' && !auth.systemAdmin) {
+    return <main className="center-shell"><section className="card"><h1>Enkätkonton</h1><div className="error" role="alert">Endast bootstrap-administratören kan hantera enkätkonton.</div><button onClick={closeSystemAccounts}>Tillbaka</button></section></main>
+  }
+
   if (screen.kind==='system') {
     return <><a className="skip-link" href="#main-content">Hoppa till huvudinnehåll</a>
-      <header className="topbar"><div><strong>Survey Service</strong><span>Systemadmin</span></div><div><button onClick={()=>setScreen({kind:'password',returnTo:'system'})}>Ändra lösenord</button><span className="username">{auth.username}</span><button onClick={()=>void authApi.logout().then(()=>setAuth({loading:false,username:null,systemAdmin:false}))}>Logga ut</button></div></header>
-      <main id="main-content" className="app-shell" tabIndex={-1}><SystemAccountPanel onDone={()=>accountId?setScreen({kind:'list'}):setScreen({kind:'list'})} onChanged={loadAccounts}/></main></>
+      <header className="topbar"><div><strong>Survey Service</strong><span>Enkätkonton</span></div><div><button onClick={()=>setScreen({kind:'password',returnTo:'system'})}>Ändra lösenord</button><span className="username">{auth.username}</span><button onClick={()=>void authApi.logout().then(()=>setAuth({loading:false,username:null,systemAdmin:false}))}>Logga ut</button></div></header>
+      <main id="main-content" className="app-shell" tabIndex={-1}><SystemAccountPanel onDone={closeSystemAccounts} onChanged={loadAccounts}/></main></>
   }
 
   if (!currentAccount) {
-    return <AccountChooser accounts={accounts} onChoose={id=>selectAccount(id)} systemAdmin={auth.systemAdmin} onSystem={()=>setScreen({kind:'system'})} onPassword={()=>setScreen({kind:'password',returnTo:'list'})} />
+    return <AccountChooser accounts={accounts} onChoose={id=>selectAccount(id)} systemAdmin={auth.systemAdmin} onSystem={openSystemAccounts} onPassword={()=>setScreen({kind:'password',returnTo:'list'})} />
   }
 
   return <><a className="skip-link" href="#main-content">Hoppa till huvudinnehåll</a>
@@ -905,7 +952,7 @@ export function App() {
       <div className="topbar-actions">
         {accounts.length>1&&<button onClick={clearAccount}>Byt konto</button>}
         <button onClick={()=>setScreen({kind:'admins'})}>Administratörer</button>
-        {auth.systemAdmin&&<button onClick={()=>setScreen({kind:'system'})}>Systemadministration</button>}
+        {auth.systemAdmin&&<button onClick={openSystemAccounts}>Enkätkonton</button>}
         <button onClick={()=>setScreen({kind:'password',returnTo:'list'})}>Ändra lösenord</button>
         <span className="username">{auth.username}</span>
         <button onClick={()=>void authApi.logout().then(()=>setAuth({loading:false,username:null,systemAdmin:false}))}>Logga ut</button>

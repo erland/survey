@@ -31,6 +31,26 @@ public class SystemAccountResource {
                 .build();
     }
 
+    @PATCH
+    @Path("/{accountId}")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public SystemAccountService.AccountSummary rename(
+            @PathParam("accountId") java.util.UUID accountId,
+            SystemAccountService.RenameAccountRequest request
+    ) {
+        return service.rename(principal(), accountId, request);
+    }
+
+    @DELETE
+    @Path("/{accountId}")
+    public Response delete(
+            @PathParam("accountId") java.util.UUID accountId,
+            @QueryParam("confirm") @DefaultValue("false") boolean confirmed
+    ) {
+        service.delete(principal(), accountId, confirmed);
+        return Response.noContent().build();
+    }
+
     private AdminPrincipal principal() {
         AdminPrincipal principal = adminRequestContext.principal();
         if (principal != null) return principal;

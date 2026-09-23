@@ -42,7 +42,9 @@ public class AccountAdminService {
                             rs.getString("role"),
                             rs.getTimestamp("created_at").toInstant(),
                             null,
-                            null
+                            null,
+                            false,
+                            false
                     ));
                 }
                 return result;
@@ -61,6 +63,7 @@ public class AccountAdminService {
             try {
                 AdminResolution admin = resolveOrCreateAdmin(connection, request.username().trim());
 
+                int membershipCreated;
                 try (PreparedStatement ps = connection.prepareStatement("""
                         INSERT INTO survey_account_admin (survey_account_id, admin_user_id, role, created_at)
                         VALUES (?, ?, 'ADMIN', CURRENT_TIMESTAMP)
@@ -68,7 +71,7 @@ public class AccountAdminService {
                         """)) {
                     ps.setObject(1, accountId);
                     ps.setObject(2, admin.userId());
-                    ps.executeUpdate();
+                    membershipCreated = ps.executeUpdate();
                 }
 
                 AdminPasswordTokenService.IssuedToken initialToken = admin.newlyCreated()
@@ -76,7 +79,8 @@ public class AccountAdminService {
                                 AdminPasswordTokenService.Purpose.INITIAL_PASSWORD, actorUserId)
                         : null;
 
-                AccountAdminView view = load(connection, accountId, admin.userId(), initialToken);
+                AccountAdminView view = load(connection, accountId, admin.userId(), initialToken,
+                        admin.newlyCreated(), membershipCreated == 1);
                 connection.commit();
                 return view;
             } catch (RuntimeException | SQLException e) {
@@ -186,7 +190,9 @@ public class AccountAdminService {
     }
 
     private AccountAdminView load(Connection connection, UUID accountId, UUID adminUserId,
-                                  AdminPasswordTokenService.IssuedToken initialToken) throws SQLException {
+                                  AdminPasswordTokenService.IssuedToken initialToken,
+                                  boolean newlyCreatedUser,
+                                  boolean membershipCreated) throws SQLException {
         try (PreparedStatement ps = connection.prepareStatement("""
                 SELECT u.id, u.username, u.active, m.role, m.created_at
                 FROM survey_account_admin m
@@ -206,7 +212,9 @@ public class AccountAdminService {
                         rs.getString("role"),
                         rs.getTimestamp("created_at").toInstant(),
                         initialToken == null ? null : passwordTokens.setupPath(initialToken),
-                        initialToken == null ? null : initialToken.expiresAt()
+                        initialToken == null ? null : initialToken.expiresAt(),
+                        newlyCreatedUser,
+                        membershipCreated
                 );
             }
         }
@@ -231,6 +239,8 @@ public class AccountAdminService {
             String role,
             Instant createdAt,
             String initialPasswordPath,
-            Instant initialPasswordExpiresAt
+            Instant initialPasswordExpiresAt,
+            boolean newlyCreatedUser,
+            boolean membershipCreated
     ) {}
 }

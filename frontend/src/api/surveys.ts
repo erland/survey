@@ -87,8 +87,10 @@ export interface AccountAdminView {
   createdAt: string
   initialPasswordPath: string | null
   initialPasswordExpiresAt: string | null
+  newlyCreatedUser: boolean
+  membershipCreated: boolean
 }
-export interface SystemAccountSummary { id: string; name: string; adminCount: number; createdAt: string; updatedAt: string }
+export interface SystemAccountSummary { id: string; name: string; adminCount: number; surveyCount: number; createdAt: string; updatedAt: string }
 export interface SystemAdminUserView { id: string; username: string; systemAdmin: boolean; active: boolean; accountCount: number; createdAt: string; updatedAt: string }
 
 export const authApi = {
@@ -109,6 +111,8 @@ export const accountApi = {
 export const systemApi = {
   accounts: () => request<SystemAccountSummary[]>('/api/system/accounts'),
   createAccount: (accountName: string, adminUsername: string) => request<{ id: string; name: string; adminUserId: string; adminUsername: string; initialPasswordPath: string | null; initialPasswordExpiresAt: string | null }>('/api/system/accounts', { method: 'POST', body: JSON.stringify({ accountName, adminUsername }) }),
+  renameAccount: (accountId: string, name: string) => request<SystemAccountSummary>(`/api/system/accounts/${accountId}`, { method: 'PATCH', body: JSON.stringify({ name }) }),
+  deleteAccount: (accountId: string, confirmed: boolean) => request<void>(`/api/system/accounts/${accountId}?confirm=${confirmed ? 'true' : 'false'}`, { method: 'DELETE' }),
   admins: () => request<SystemAdminUserView[]>('/api/system/admins'),
   createPasswordResetLink: (userId: string) => request<{ path: string; expiresAt: string }>(`/api/system/admins/${userId}/password-reset`, { method: 'POST' }),
   deactivateAdmin: (userId: string) => request<void>(`/api/system/admins/${userId}/deactivate`, { method: 'POST' }),
