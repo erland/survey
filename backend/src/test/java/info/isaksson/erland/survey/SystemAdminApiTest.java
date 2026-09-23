@@ -73,6 +73,91 @@ class SystemAdminApiTest {
     }
 
     @Test
+    void systemAdminCanRenameSurveyAccount() {
+        String systemCookie = login("test-admin", "test-password-123");
+        String email = "rename-" + UUID.randomUUID() + "@example.test";
+        String accountId = given()
+                .cookie("survey_admin_session", systemCookie)
+                .contentType(ContentType.JSON)
+                .body("{\"accountName\":\"Before\",\"adminUsername\":\"" + email + "\"}")
+                .post("/api/system/accounts")
+                .then().statusCode(201)
+                .extract().path("id");
+
+        given()
+                .cookie("survey_admin_session", systemCookie)
+                .contentType(ContentType.JSON)
+                .body("{\"name\":\"After\"}")
+                .patch("/api/system/accounts/" + accountId)
+                .then().statusCode(200)
+                .body("name", equalTo("After"));
+    }
+
+    @Test
+    void confirmedAccountDeletionRemovesSurveysAndMembershipsButKeepsAdminIdentity() throws Exception {
+        String systemCookie = login("test-admin", "test-password-123");
+        String email = "delete-account-" + UUID.randomUUID() + "@example.test";
+
+        var created = given()
+                .cookie("survey_admin_session", systemCookie)
+                .contentType(ContentType.JSON)
+                .body("{\"accountName\":\"Delete me\",\"adminUsername\":\"" + email + "\"}")
+                .post("/api/system/accounts")
+                .then().statusCode(201)
+                .extract();
+
+        String accountId = created.path("id");
+        String setupPath = created.path("initialPasswordPath");
+        consumeSetupLink(setupPath, "12345678");
+        String adminCookie = login(email, "12345678");
+
+        String surveyId = given()
+                .cookie("survey_admin_session", adminCookie)
+                .contentType(ContentType.JSON)
+                .body("""
+                        {
+                          "title":"Deleted with account",
+                          "status":"DRAFT",
+                          "questions":[
+                            {"type":"YES_NO","text":"Ready?","required":true,"options":[]}
+                          ]
+                        }
+                        """)
+                .post("/api/admin/accounts/" + accountId + "/surveys")
+                .then().statusCode(201)
+                .extract().path("id");
+
+        String runId = given()
+                .cookie("survey_admin_session", adminCookie)
+                .contentType(ContentType.JSON)
+                .body("{}")
+                .post("/api/admin/accounts/" + accountId + "/surveys/" + surveyId + "/runs")
+                .then().statusCode(201)
+                .extract().path("id");
+
+        given()
+                .cookie("survey_admin_session", systemCookie)
+                .delete("/api/system/accounts/" + accountId)
+                .then().statusCode(400)
+                .body("code", equalTo("ACCOUNT_DELETE_CONFIRMATION_REQUIRED"));
+
+        assertTrue(accountExists("Delete me"));
+        assertTrue(surveyExists(UUID.fromString(surveyId)));
+        assertTrue(runExists(UUID.fromString(runId)));
+
+        given()
+                .cookie("survey_admin_session", systemCookie)
+                .delete("/api/system/accounts/" + accountId + "?confirm=true")
+                .then().statusCode(204);
+
+        assertFalse(accountExists("Delete me"));
+        assertFalse(surveyExists(UUID.fromString(surveyId)));
+        assertFalse(runExists(UUID.fromString(runId)));
+        assertTrue(adminExists(email));
+        login(email, "12345678");
+    }
+
+    @Test
     void setupLinkAcceptsEightCharacterPasswordAndIsSingleUse() {
         String systemCookie = login("test-admin", "test-password-123");
         String email = "eight-" + UUID.randomUUID() + "@example.test";
@@ -251,6 +336,30 @@ class SystemAdminApiTest {
             }
         }
         return accountId;
+    }
+
+    private boolean surveyExists(UUID surveyId) throws Exception {
+        try (var connection = dataSource.getConnection();
+             PreparedStatement ps = connection.prepareStatement(
+                     "SELECT EXISTS (SELECT 1 FROM survey WHERE id = ?)")) {
+            ps.setObject(1, surveyId);
+            try (ResultSet rs = ps.executeQuery()) {
+                rs.next();
+                return rs.getBoolean(1);
+            }
+        }
+    }
+
+    private boolean runExists(UUID runId) throws Exception {
+        try (var connection = dataSource.getConnection();
+             PreparedStatement ps = connection.prepareStatement(
+                     "SELECT EXISTS (SELECT 1 FROM survey_run WHERE id = ?)")) {
+            ps.setObject(1, runId);
+            try (ResultSet rs = ps.executeQuery()) {
+                rs.next();
+                return rs.getBoolean(1);
+            }
+        }
     }
 
     private boolean adminExists(String username) throws Exception {
