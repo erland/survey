@@ -24,9 +24,12 @@ public class SystemAccountService {
         requireSystemAdmin(principal);
         try (Connection connection = dataSource.getConnection();
              PreparedStatement ps = connection.prepareStatement("""
-                     SELECT a.id, a.name, a.created_at, a.updated_at, COUNT(m.admin_user_id) AS admin_count
+                     SELECT a.id, a.name, a.created_at, a.updated_at,
+                            COUNT(DISTINCT m.admin_user_id) AS admin_count,
+                            COUNT(DISTINCT s.id) AS survey_count
                      FROM survey_account a
                      LEFT JOIN survey_account_admin m ON m.survey_account_id = a.id
+                     LEFT JOIN survey s ON s.survey_account_id = a.id
                      GROUP BY a.id, a.name, a.created_at, a.updated_at
                      ORDER BY lower(a.name), a.id
                      """);
@@ -37,6 +40,7 @@ public class SystemAccountService {
                         rs.getObject("id", UUID.class),
                         rs.getString("name"),
                         rs.getLong("admin_count"),
+                        rs.getLong("survey_count"),
                         rs.getTimestamp("created_at").toInstant(),
                         rs.getTimestamp("updated_at").toInstant()
                 ));
@@ -171,5 +175,5 @@ public class SystemAccountService {
             String initialPasswordPath,
             Instant initialPasswordExpiresAt
     ) {}
-    public record AccountSummary(UUID id, String name, long adminCount, Instant createdAt, Instant updatedAt) {}
+    public record AccountSummary(UUID id, String name, long adminCount, long surveyCount, Instant createdAt, Instant updatedAt) {}
 }
