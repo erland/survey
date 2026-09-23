@@ -230,6 +230,28 @@ function SystemAccountPanel({ onDone, onChanged }: { onDone:()=>void; onChanged:
     finally{setBusy(false)}
   }
 
+  async function renameAccount(accountId:string,currentName:string){
+    const nextName=prompt('Nytt namn på enkätkontot:',currentName)
+    if(nextName===null || nextName.trim()==='' || nextName.trim()===currentName) return
+    setError('')
+    try{
+      await systemApi.renameAccount(accountId,nextName.trim())
+      await Promise.all([load(),onChanged()])
+    }catch(e){setError(e instanceof Error?e.message:'Kunde inte byta namn på enkätkontot.')}
+  }
+
+  async function deleteAccount(account:{id:string;name:string;surveyCount:number;adminCount:number}){
+    const warning=account.surveyCount>0
+      ? `Ta bort enkätkontot "${account.name}" permanent? Kontot innehåller ${account.surveyCount} enkät${account.surveyCount===1?'':'er'} som också kommer att tas bort, inklusive genomföranden och insamlade svar. Administratörernas användarkonton raderas inte.`
+      : `Ta bort enkätkontot "${account.name}" permanent? Administratörskopplingarna till kontot tas bort, men användarkontona behålls.`
+    if(!confirm(warning)) return
+    setError('')
+    try{
+      await systemApi.deleteAccount(account.id,true)
+      await Promise.all([load(),onChanged()])
+    }catch(e){setError(e instanceof Error?e.message:'Kunde inte ta bort enkätkontot.')}
+  }
+
   async function createPasswordResetLink(userId:string, username:string){
     setError('');setResetLink(null)
     try{
@@ -265,7 +287,7 @@ function SystemAccountPanel({ onDone, onChanged }: { onDone:()=>void; onChanged:
     {invite&&<InviteLink path={invite.path} expiresAt={invite.expiresAt}/>}
     {resetLink&&<InviteLink path={resetLink.path} expiresAt={resetLink.expiresAt} title={`Återställ lösenord för ${resetLink.username}`}/>}
 
-    <div className="card"><h2>Alla enkätkonton</h2><p className="muted">Bootstrap-administratören hanterar enkätkontonas livscykel här. Enkätadministratörer får endast åtkomst till konton de uttryckligen är kopplade till.</p><div className="admin-list">{accounts.map(account=><div className="admin-row" key={account.id}><div><strong>{account.name}</strong><div className="muted">{account.surveyCount} enkät{account.surveyCount===1?'':'er'} · {account.adminCount} administratör{account.adminCount===1?'':'er'}</div></div></div>)}</div></div>
+    <div className="card"><h2>Alla enkätkonton</h2><p className="muted">Bootstrap-administratören hanterar enkätkontonas livscykel här. Enkätadministratörer får endast åtkomst till konton de uttryckligen är kopplade till. Ett konto kan tas bort även om det innehåller enkäter, men då måste den permanenta borttagningen bekräftas.</p><div className="admin-list">{accounts.map(account=><div className="admin-row" key={account.id}><div><strong>{account.name}</strong><div className="muted">{account.surveyCount} enkät{account.surveyCount===1?'':'er'} · {account.adminCount} administratör{account.adminCount===1?'':'er'}</div></div><div className="actions"><button onClick={()=>void renameAccount(account.id,account.name)}>Byt namn</button><button className="danger-ghost" onClick={()=>void deleteAccount(account)}>Ta bort konto</button></div></div>)}</div></div>
 
     <div className="card"><h2>Administratörskonton</h2><p className="muted">Konton utan enkätkonto-medlemskap kan tas bort permanent efter att de har inaktiverats. Konton med historiska referenser kan behöva behållas.</p>
       <div className="admin-list">{admins.map(admin=><div className="admin-row" key={admin.id}>
