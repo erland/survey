@@ -1,7 +1,7 @@
 project: survey-service
 mode: CHANGE
-current_step: STEP-51
-current_step_name: Bootstrap survey account administration
+current_step: STEP-52
+current_step_name: Survey account lifecycle management
 status: implemented_ci_verified
 completed_through: STEP-51
 release_baseline: 1.0.0
@@ -178,8 +178,8 @@ release_readiness:
   warnings:
     - release version and tag are intentionally deferred to the release step
     - production smoke test is pending after merge/deployment
-next_step: STEP-52
-next_step_name: Add survey account rename and safe deletion
+next_step: VERIFY
+next_step_name: Verify survey account lifecycle management in CI
 
 step_46:
   changes:
@@ -296,3 +296,24 @@ step_51:
     - backend coverage checks survey and administrator counts in the system account overview
     - Playwright covers the dedicated survey-account administration route
     - CI run 159 passed backend, frontend and end-to-end
+
+step_52:
+  changes:
+    - bootstrap/system administrator can rename survey accounts
+    - bootstrap/system administrator can delete a survey account even when it contains surveys and administrator memberships
+    - account deletion requires explicit confirmation in both UI and backend
+    - UI warning states that surveys, runs and collected responses will be removed permanently
+    - account deletion removes surveys first so existing survey aggregate cascades remove runs, participant sessions, responses and presentation data
+    - deleting the survey_account then removes survey_account_admin memberships through the existing database cascade
+    - global admin_user identities are preserved even when their account membership is removed
+  invariants:
+    - destructive account deletion is unavailable without explicit confirmation
+    - deleting one account never grants or removes access to a different account
+    - deleting an account never deletes global administrator identities
+    - all survey data owned by the deleted account is removed atomically
+  verification:
+    - backend integration test covers rename
+    - backend integration test covers confirmation requirement and deletion of an account containing an administrator, survey and run
+    - backend integration test verifies the administrator identity and login remain after account deletion
+    - Playwright covers rename and confirmed account deletion controls
+    - pending CI
