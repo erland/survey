@@ -88,7 +88,7 @@ export interface AccountAdminView {
   initialPasswordPath: string | null
   initialPasswordExpiresAt: string | null
 }
-export interface SystemAccountSummary { id: string; name: string; adminCount: number; createdAt: string; updatedAt: string }
+export interface SystemAccountSummary { id: string; name: string; adminCount: number; surveyCount: number; createdAt: string; updatedAt: string }
 export interface SystemAdminUserView { id: string; username: string; systemAdmin: boolean; active: boolean; accountCount: number; createdAt: string; updatedAt: string }
 
 export const authApi = {
