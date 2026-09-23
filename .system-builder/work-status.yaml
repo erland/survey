@@ -1,7 +1,7 @@
 project: survey-service
 mode: CHANGE
-current_step: STEP-50
-current_step_name: Self-service administrator password change
+current_step: STEP-51
+current_step_name: Bootstrap survey account administration
 status: implemented_ci_verified
 completed_through: STEP-50
 release_baseline: 1.0.0
@@ -178,8 +178,8 @@ release_readiness:
   warnings:
     - release version and tag are intentionally deferred to the release step
     - production smoke test is pending after merge/deployment
-next_step: MERGE
-next_step_name: Merge PR #5 after human approval
+next_step: VERIFY
+next_step_name: Verify bootstrap survey account administration in CI
 
 step_46:
   changes:
@@ -278,3 +278,21 @@ step_50:
     - backend integration test covers incorrect-current-password rejection, successful change, preservation of the current session, revocation of another session, old-password rejection and new-password login
     - Playwright covers self-service password change through the signed-in UI
     - CI run 156 passed backend, frontend and end-to-end
+
+step_51:
+  changes:
+    - bootstrap/system administrator gets a dedicated /admin/system/accounts survey-account administration route
+    - survey-account administration navigation is labeled Enkätkonton and remains available even when the bootstrap administrator belongs to only one account
+    - direct access to the survey-account page is rejected in the UI for non-system administrators
+    - system account overview now shows both survey count and administrator count per account
+    - the page explains that survey administrators only receive access to accounts they are explicitly linked to
+    - existing account creation and first-administrator setup-link behavior remains unchanged
+  invariants:
+    - only the bootstrap/system administrator may use /api/system account-management operations
+    - ordinary survey administrators cannot gain access to another survey account merely because their admin_user exists globally
+    - account membership remains explicit through survey_account_admin
+    - creating or linking an existing administrator does not broaden access beyond the target account
+  verification:
+    - backend coverage checks survey and administrator counts in the system account overview
+    - Playwright covers the dedicated survey-account administration route
+    - pending CI
