@@ -158,7 +158,7 @@ function AccountChooser({ accounts, onChoose, systemAdmin, onSystem, onPassword 
           <button className="account-choice" key={account.id} onClick={()=>onChoose(account.id)}>
             <strong>{account.name}</strong><span>{account.role}</span>
           </button>)}</div>}
-    <div className="system-entry"><button onClick={onPassword}>Ändra lösenord</button>{systemAdmin && <button onClick={onSystem}>Systemadministration</button>}</div>
+    <div className="system-entry"><button onClick={onPassword}>Ändra lösenord</button>{systemAdmin && <button onClick={onSystem}>Enkätkonton</button>}</div>
   </section></main>
 }
 
@@ -255,7 +255,7 @@ function SystemAccountPanel({ onDone, onChanged }: { onDone:()=>void; onChanged:
   }
 
   return <section>
-    <div className="page-heading"><div><button className="back" onClick={onDone}>← Tillbaka</button><p className="eyebrow">Systemadministration</p><h1>Enkätkonton</h1></div></div>
+    <div className="page-heading"><div><button className="back" onClick={onDone}>← Tillbaka</button><p className="eyebrow">Bootstrap-administration</p><h1>Enkätkonton</h1></div></div>
     {error&&<div className="error" role="alert">{error}</div>}
     <div className="card admin-management"><h2>Skapa enkätkonto</h2><p className="muted">Om den första administratören är ny skapas en engångslänk för att sätta lösenordet.</p><form onSubmit={create} className="admin-add-form">
       <label>Kontonamn<input value={name} onChange={e=>setName(e.target.value)} required /></label>
