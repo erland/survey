@@ -1,9 +1,9 @@
 project: survey-service
 mode: CHANGE
-current_step: STEP-52
-current_step_name: Survey account lifecycle management
+current_step: STEP-53
+current_step_name: Per-account administrator membership and recovery clarity
 status: implemented_ci_verified
-completed_through: STEP-52
+completed_through: STEP-53
 release_baseline: 1.0.0
 verification_policy:
   local_static: required
@@ -178,8 +178,8 @@ release_readiness:
   warnings:
     - release version and tag are intentionally deferred to the release step
     - production smoke test is pending after merge/deployment
-next_step: STEP-53
-next_step_name: Refine per-account administrator management and recovery actions
+next_step: MERGE
+next_step_name: Review and merge PR #6
 
 step_46:
   changes:
@@ -317,3 +317,25 @@ step_52:
     - backend integration test verifies the administrator identity and login remain after account deletion
     - Playwright covers rename and confirmed account deletion controls
     - CI run 167 passed backend, frontend and end-to-end
+
+step_53:
+  changes:
+    - account-admin add responses explicitly distinguish newly created users, newly created memberships and already-existing memberships
+    - newly created administrator identities receive the existing one-time registration link
+    - existing administrator identities linked to another account receive only the target-account membership and no new registration link
+    - attempting to add an administrator already linked to the same account is reported as an existing membership
+    - account administration UI explains these three outcomes clearly
+    - bootstrap administration labels password recovery as a new reset link and explains that it is the recovery path for forgotten passwords
+    - global password-reset behavior remains restricted to bootstrap/system administration
+  invariants:
+    - administrator identity is global but survey-account access is granted only by explicit survey_account_admin membership
+    - linking an existing administrator to one account cannot grant access to any unrelated account
+    - no registration token is issued for an existing administrator identity
+    - re-adding an existing membership does not create duplicate membership or password tokens
+    - bootstrap password recovery does not alter survey-account memberships
+  verification:
+    - backend integration tests verify new-user versus existing-user versus existing-membership outcomes
+    - backend integration test verifies an existing administrator still receives ACCOUNT_ACCESS_DENIED for an unrelated third account
+    - Playwright verifies the distinct UI feedback for newly created and existing administrators
+    - Playwright verifies bootstrap password-reset link wording and flow
+    - CI run 173 passed backend, frontend and end-to-end
