@@ -61,6 +61,18 @@ class SystemAdminApiTest {
     }
 
     @Test
+    void systemAccountOverviewIncludesSurveyAndAdministratorCounts() {
+        String systemCookie = login("test-admin", "test-password-123");
+
+        given()
+                .cookie("survey_admin_session", systemCookie)
+                .get("/api/system/accounts")
+                .then().statusCode(200)
+                .body("[0].adminCount", org.hamcrest.Matchers.greaterThanOrEqualTo(1))
+                .body("[0].surveyCount", org.hamcrest.Matchers.greaterThanOrEqualTo(0));
+    }
+
+    @Test
     void setupLinkAcceptsEightCharacterPasswordAndIsSingleUse() {
         String systemCookie = login("test-admin", "test-password-123");
         String email = "eight-" + UUID.randomUUID() + "@example.test";
