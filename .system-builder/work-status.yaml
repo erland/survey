@@ -3,7 +3,7 @@ mode: CHANGE
 current_step: STEP-51
 current_step_name: Bootstrap survey account administration
 status: implemented_ci_verified
-completed_through: STEP-50
+completed_through: STEP-51
 release_baseline: 1.0.0
 verification_policy:
   local_static: required
@@ -178,8 +178,8 @@ release_readiness:
   warnings:
     - release version and tag are intentionally deferred to the release step
     - production smoke test is pending after merge/deployment
-next_step: VERIFY
-next_step_name: Verify bootstrap survey account administration in CI
+next_step: STEP-52
+next_step_name: Add survey account rename and safe deletion
 
 step_46:
   changes:
@@ -295,4 +295,4 @@ step_51:
   verification:
     - backend coverage checks survey and administrator counts in the system account overview
     - Playwright covers the dedicated survey-account administration route
-    - pending CI
+    - CI run 159 passed backend, frontend and end-to-end
