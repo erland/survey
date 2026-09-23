@@ -190,6 +190,7 @@ test('multi-user accounts stay isolated and administrators can manage membership
   await page.getByRole('button', { name: 'Administratörer' }).click()
   await page.getByLabel('E-postadress').fill(sharedAdmin)
   await page.getByRole('button', { name: 'Lägg till' }).click()
+  await expect(page.getByRole('status')).toContainText('Ny administratör')
   await expect(page.locator('.admin-row').filter({ hasText: sharedAdmin })).toBeVisible()
   await setPasswordFromVisibleInvite(page, sharedPassword)
 
@@ -205,6 +206,8 @@ test('multi-user accounts stay isolated and administrators can manage membership
 
   await page.getByLabel('E-postadress').fill(sharedAdmin)
   await page.getByRole('button', { name: 'Lägg till' }).click()
+  await expect(page.getByRole('status')).toContainText('Befintlig administratör')
+  await expect(page.getByRole('status')).toContainText('Ingen registreringslänk behövs')
   await expect(page.locator('.admin-row').filter({ hasText: sharedAdmin })).toBeVisible()
   await logout(page)
 
@@ -237,7 +240,7 @@ test('multi-user accounts stay isolated and administrators can manage membership
   await login(page)
   await page.getByRole('button', { name: 'Enkätkonton' }).click()
   const sharedSystemRow = page.locator('.admin-row').filter({ hasText: sharedAdmin })
-  await sharedSystemRow.getByRole('button', { name: 'Skapa återställningslänk' }).click()
+  await sharedSystemRow.getByRole('button', { name: 'Ny återställningslänk' }).click()
   await expect(page.getByRole('heading', { name: `Återställ lösenord för ${sharedAdmin}` })).toBeVisible()
   const resetPassword = 'e2e-reset-password-123'
   await setPasswordFromVisibleInvite(page, resetPassword)
