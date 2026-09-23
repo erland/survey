@@ -164,6 +164,23 @@ test('multi-user accounts stay isolated and administrators can manage membership
     await setPasswordFromVisibleInvite(page, password)
   }
 
+  const disposableAccount = `Disposable account ${suffix}`
+  const renamedDisposableAccount = `Renamed disposable ${suffix}`
+  await page.getByLabel('Kontonamn').fill(disposableAccount)
+  await page.getByLabel('Första administratörens e-post').fill(adminA)
+  await page.getByRole('button', { name: 'Skapa konto' }).click()
+  let disposableRow = page.locator('.admin-row').filter({ hasText: disposableAccount })
+  await expect(disposableRow).toBeVisible()
+
+  page.once('dialog', dialog => void dialog.accept(renamedDisposableAccount))
+  await disposableRow.getByRole('button', { name: 'Byt namn' }).click()
+  disposableRow = page.locator('.admin-row').filter({ hasText: renamedDisposableAccount })
+  await expect(disposableRow).toBeVisible()
+
+  page.once('dialog', dialog => void dialog.accept())
+  await disposableRow.getByRole('button', { name: 'Ta bort konto' }).click()
+  await expect(disposableRow).toHaveCount(0)
+
   await logout(page)
 
   await signIn(page, adminA, passwordA)
