@@ -1,9 +1,9 @@
 project: survey-service
-mode: CREATE
-current_step: STEP-46
-current_step_name: Repair cascading survey deletion
-status: implemented_pending_ci
-completed_through: STEP-45
+mode: CHANGE
+current_step: STEP-50
+current_step_name: Self-service administrator password change
+status: implemented_ci_verified
+completed_through: STEP-50
 release_baseline: 1.0.0
 verification_policy:
   local_static: required
@@ -178,8 +178,8 @@ release_readiness:
   warnings:
     - release version and tag are intentionally deferred to the release step
     - production smoke test is pending after merge/deployment
-next_step: VERIFY
-next_step_name: Verify survey deletion repair in CI
+next_step: MERGE
+next_step_name: Merge PR #5 after human approval
 
 step_46:
   changes:
@@ -191,4 +191,90 @@ step_46:
     - survey deletion is a permanent aggregate deletion
     - no orphan survey runs or participant data remain after survey deletion
   verification:
-    - pending CI
+    - CI run 125 passed backend, frontend and end-to-end
+
+step_47:
+  changes:
+    - minimum password length for newly created regular administrators is reduced from 12 to 8 characters
+    - newly created regular administrators must use a normalized email address as their login identifier
+    - existing legacy administrator usernames remain usable and may still be linked to additional survey accounts
+    - bootstrap/system administrator usernames remain exempt from the email requirement
+    - admin_user.password_hash is nullable to support accounts that have not set their first password yet
+    - admin_password_token stores hashed, expiring, single-use-capable INITIAL_PASSWORD and PASSWORD_RESET tokens
+    - issuing a new password token revokes earlier unused tokens for the same administrator
+    - password token lifetime is configurable and defaults to 24 hours
+    - passwordless administrators cannot authenticate with the ordinary password login flow
+  invariants:
+    - clear password tokens are never stored in the database
+    - bootstrap administrator identity remains configuration-driven and may be a non-email username
+    - legacy non-email administrators remain compatible
+    - new ordinary administrators require an email identity
+    - password token UI and consumption endpoints are deferred to subsequent steps
+  verification:
+    - migration coverage checks password-token schema and nullable password hashes
+    - policy coverage checks eight-character passwords and email requirement
+    - token service coverage checks hash-only persistence and revocation of older tokens
+    - CI run 128 passed backend, frontend and end-to-end
+
+step_48:
+  changes:
+    - newly created regular administrators are created without a preassigned password
+    - system-account and account-admin creation return a one-time initial-password path and expiry for new users
+    - the administration UI shows the initial-password URL and provides a copy-link action
+    - /admin/set-password lets the invited administrator choose their first password
+    - POST /api/auth/password-token/consume validates and consumes the one-time token
+    - successful token use stores the password hash, marks the token used and revokes existing sessions
+    - existing administrators added to another account do not receive a new initial-password token
+    - system-account creation no longer refreshes unrelated parent account membership state, keeping the invite link visible
+  invariants:
+    - initial-password tokens expire and can be used only once
+    - clear tokens are returned only to the creating client and are never stored in the database
+    - regular administrator passwords require at least 8 characters
+    - bootstrap/system administrator remains configuration-driven and exempt from the email-only creation rule
+    - legacy non-email administrators remain linkable to additional accounts
+  verification:
+    - backend integration tests cover passwordless creation, setup-link consumption, eight-character password acceptance and single-use rejection
+    - account-admin integration tests cover the same initial-password flow
+    - Playwright covers creation, visible setup link, setting the password and subsequent login
+    - CI run 140 exposed an invite-link visibility defect in E2E
+    - repair keeps the setup link visible after account creation
+    - CI run 141 passed backend, frontend and end-to-end
+
+step_49:
+  changes:
+    - system administrators can generate a PASSWORD_RESET link for an existing active regular administrator
+    - password-reset links reuse the same expiring hashed-token infrastructure and /admin/set-password flow as initial-password links
+    - system administration exposes a create-reset-link action and a copyable reset URL
+    - consuming a reset link replaces the password hash and revokes all active sessions for the target administrator
+    - inactive administrators must be reactivated before a reset link can be created
+    - bootstrap/system administrator accounts are excluded from this lifecycle flow
+  invariants:
+    - password-reset links are time-limited and single-use
+    - issuing a new token revokes older unused password tokens for the same administrator
+    - clear reset tokens are never stored in the database
+    - an unused reset link does not invalidate the current password or sessions
+    - successful password reset invalidates the old password and existing sessions
+  verification:
+    - backend integration tests cover reset-link creation, old-session revocation, old-password rejection, new-password login and single-use enforcement
+    - backend integration tests reject reset-link creation for inactive and system-administrator accounts
+    - Playwright covers system-admin reset-link creation, password replacement and login with the new password
+    - CI run 148 passed backend, frontend and end-to-end
+
+step_50:
+  changes:
+    - every signed-in administrator, including the bootstrap/system administrator, can change their own password
+    - password change requires the current password and a new password of at least 8 characters
+    - the current authenticated session remains valid after a successful change
+    - all other active sessions for the administrator are revoked
+    - unused initial-password and password-reset tokens for the administrator are revoked
+    - password-change navigation is available from account selection, account administration and system administration
+    - returning from password change preserves the appropriate administration context
+  invariants:
+    - knowledge of the current password is required for self-service password change
+    - the previous password no longer authenticates after a successful change
+    - a password change cannot leave another active session or unused reset token usable
+    - bootstrap/system administrator remains configuration-created but may change its persisted password after creation
+  verification:
+    - backend integration test covers incorrect-current-password rejection, successful change, preservation of the current session, revocation of another session, old-password rejection and new-password login
+    - Playwright covers self-service password change through the signed-in UI
+    - CI run 156 passed backend, frontend and end-to-end

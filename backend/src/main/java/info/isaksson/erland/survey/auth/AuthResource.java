@@ -1,5 +1,6 @@
 package info.isaksson.erland.survey.auth;
 
+import info.isaksson.erland.survey.surveyapi.ApiException;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.Context;
@@ -15,6 +16,7 @@ import java.util.Map;
 @Produces(MediaType.APPLICATION_JSON)
 public class AuthResource {
     @Inject AuthService authService;
+    @Inject AdminPasswordTokenService passwordTokens;
 
     @ConfigProperty(name = "app.auth.cookie-secure", defaultValue = "true")
     boolean cookieSecure;
@@ -36,6 +38,31 @@ public class AuthResource {
                         .header("Set-Cookie", sessionCookie(result.token()))
                         .build())
                 .orElseGet(this::invalidCredentials);
+    }
+
+    @POST
+    @Path("/password-token/consume")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response consumePasswordToken(PasswordTokenRequest request) {
+        if (request == null) {
+            throw new ApiException(400, "INVALID_PASSWORD_TOKEN", "Lösenordslänken är ogiltig.");
+        }
+        passwordTokens.consume(request.token(), request.password());
+        return Response.noContent().build();
+    }
+
+    @POST
+    @Path("/change-password")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response changePassword(
+            @CookieParam(AdminAuthFilter.COOKIE_NAME) String token,
+            ChangePasswordRequest request
+    ) {
+        if (request == null) {
+            throw new ApiException(400, "INVALID_PASSWORD_CHANGE", "Lösenordsbytet saknar uppgifter.");
+        }
+        authService.changePassword(token, request.currentPassword(), request.newPassword());
+        return Response.noContent().build();
     }
 
     @POST
@@ -84,4 +111,6 @@ public class AuthResource {
     }
 
     public record LoginRequest(String username, String password) {}
+    public record PasswordTokenRequest(String token, String password) {}
+    public record ChangePasswordRequest(String currentPassword, String newPassword) {}
 }

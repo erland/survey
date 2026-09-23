@@ -79,7 +79,15 @@ export interface AuthMe {
   systemAdmin: boolean
 }
 export interface SurveyAccountMembership { id: string; name: string; role: string }
-export interface AccountAdminView { userId: string; username: string; active: boolean; role: string; createdAt: string }
+export interface AccountAdminView {
+  userId: string
+  username: string
+  active: boolean
+  role: string
+  createdAt: string
+  initialPasswordPath: string | null
+  initialPasswordExpiresAt: string | null
+}
 export interface SystemAccountSummary { id: string; name: string; adminCount: number; createdAt: string; updatedAt: string }
 export interface SystemAdminUserView { id: string; username: string; systemAdmin: boolean; active: boolean; accountCount: number; createdAt: string; updatedAt: string }
 
@@ -87,19 +95,22 @@ export const authApi = {
   me: () => request<AuthMe>('/api/auth/me'),
   login: (username: string, password: string) => request<{ username: string; expiresAt: string }>('/api/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
   logout: () => request<void>('/api/auth/logout', { method: 'POST' }),
+  setPassword: (token: string, password: string) => request<void>('/api/auth/password-token/consume', { method: 'POST', body: JSON.stringify({ token, password }) }),
+  changePassword: (currentPassword: string, newPassword: string) => request<void>('/api/auth/change-password', { method: 'POST', body: JSON.stringify({ currentPassword, newPassword }) }),
 }
 
 export const accountApi = {
   list: () => request<SurveyAccountMembership[]>('/api/admin/accounts'),
   admins: (accountId: string) => request<AccountAdminView[]>(`/api/admin/accounts/${accountId}/admins`),
-  addAdmin: (accountId: string, username: string, initialPassword?: string) => request<AccountAdminView>(`/api/admin/accounts/${accountId}/admins`, { method: 'POST', body: JSON.stringify({ username, initialPassword: initialPassword || null }) }),
+  addAdmin: (accountId: string, username: string) => request<AccountAdminView>(`/api/admin/accounts/${accountId}/admins`, { method: 'POST', body: JSON.stringify({ username }) }),
   removeAdmin: (accountId: string, userId: string) => request<void>(`/api/admin/accounts/${accountId}/admins/${userId}`, { method: 'DELETE' }),
 }
 
 export const systemApi = {
   accounts: () => request<SystemAccountSummary[]>('/api/system/accounts'),
-  createAccount: (accountName: string, adminUsername: string, adminPassword?: string) => request<{ id: string; name: string; adminUserId: string; adminUsername: string }>('/api/system/accounts', { method: 'POST', body: JSON.stringify({ accountName, adminUsername, adminPassword: adminPassword || null }) }),
+  createAccount: (accountName: string, adminUsername: string) => request<{ id: string; name: string; adminUserId: string; adminUsername: string; initialPasswordPath: string | null; initialPasswordExpiresAt: string | null }>('/api/system/accounts', { method: 'POST', body: JSON.stringify({ accountName, adminUsername }) }),
   admins: () => request<SystemAdminUserView[]>('/api/system/admins'),
+  createPasswordResetLink: (userId: string) => request<{ path: string; expiresAt: string }>(`/api/system/admins/${userId}/password-reset`, { method: 'POST' }),
   deactivateAdmin: (userId: string) => request<void>(`/api/system/admins/${userId}/deactivate`, { method: 'POST' }),
   activateAdmin: (userId: string) => request<void>(`/api/system/admins/${userId}/activate`, { method: 'POST' }),
   deleteAdmin: (userId: string) => request<void>(`/api/system/admins/${userId}`, { method: 'DELETE' }),

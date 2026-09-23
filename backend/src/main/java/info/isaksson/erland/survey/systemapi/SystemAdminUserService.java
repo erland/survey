@@ -1,5 +1,6 @@
 package info.isaksson.erland.survey.systemapi;
 
+import info.isaksson.erland.survey.auth.AdminPasswordTokenService;
 import info.isaksson.erland.survey.auth.AuthService.AdminPrincipal;
 import info.isaksson.erland.survey.surveyapi.ApiException;
 import io.agroal.api.AgroalDataSource;
@@ -15,6 +16,7 @@ import java.util.UUID;
 @ApplicationScoped
 public class SystemAdminUserService {
     @Inject AgroalDataSource dataSource;
+    @Inject AdminPasswordTokenService passwordTokens;
 
     public List<AdminUserView> list(AdminPrincipal principal) {
         requireSystemAdmin(principal);
@@ -44,6 +46,33 @@ public class SystemAdminUserService {
         } catch (SQLException e) {
             throw new IllegalStateException("Could not list administrator users", e);
         }
+    }
+
+    public PasswordResetLink createPasswordResetLink(AdminPrincipal principal, UUID userId) {
+        requireSystemAdmin(principal);
+
+        try (Connection connection = dataSource.getConnection()) {
+            UserState state = loadUser(connection, userId);
+            if (state.systemAdmin()) {
+                throw new ApiException(409, "SYSTEM_ADMIN_PROTECTED",
+                        "Systemadministratörskonton hanteras inte via lösenordsåterställning.");
+            }
+            if (!state.active()) {
+                throw new ApiException(409, "ADMIN_INACTIVE",
+                        "Ett inaktivt administratörskonto måste återaktiveras innan lösenordet kan återställas.");
+            }
+        } catch (ApiException e) {
+            throw e;
+        } catch (SQLException e) {
+            throw new IllegalStateException("Could not validate administrator user for password reset", e);
+        }
+
+        AdminPasswordTokenService.IssuedToken token = passwordTokens.issue(
+                userId,
+                AdminPasswordTokenService.Purpose.PASSWORD_RESET,
+                principal.userId()
+        );
+        return new PasswordResetLink(passwordTokens.setupPath(token), token.expiresAt());
     }
 
     public void deactivate(AdminPrincipal principal, UUID userId) {
@@ -239,4 +268,6 @@ public class SystemAdminUserService {
             Instant createdAt,
             Instant updatedAt
     ) {}
+
+    public record PasswordResetLink(String path, Instant expiresAt) {}
 }

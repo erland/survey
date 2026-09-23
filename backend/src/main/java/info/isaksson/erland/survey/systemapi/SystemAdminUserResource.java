@@ -23,6 +23,12 @@ public class SystemAdminUserResource {
     }
 
     @POST
+    @Path("/{userId}/password-reset")
+    public SystemAdminUserService.PasswordResetLink createPasswordResetLink(@PathParam("userId") UUID userId) {
+        return service.createPasswordResetLink(principal(), userId);
+    }
+
+    @POST
     @Path("/{userId}/deactivate")
     public Response deactivate(@PathParam("userId") UUID userId) {
         service.deactivate(principal(), userId);

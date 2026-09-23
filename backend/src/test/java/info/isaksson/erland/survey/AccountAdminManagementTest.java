@@ -25,21 +25,20 @@ class AccountAdminManagementTest {
         UUID accountId = createAccountWithAdmin(actorUsername);
         String actorCookie = login(actorUsername);
 
-        String newUsername = "member-" + UUID.randomUUID();
-        String newUserId = given()
+        String newUsername = "member-" + UUID.randomUUID() + "@example.test";
+        var created = given()
                 .cookie("survey_admin_session", actorCookie)
                 .contentType(ContentType.JSON)
-                .body("""
-                        {
-                          "username":"%s",
-                          "initialPassword":"new-admin-password-123"
-                        }
-                        """.formatted(newUsername))
+                .body("{\"username\":\"" + newUsername + "\"}")
                 .post("/api/admin/accounts/" + accountId + "/admins")
                 .then().statusCode(201)
                 .body("username", equalTo(newUsername))
                 .body("role", equalTo("ADMIN"))
-                .extract().path("userId");
+                .extract();
+        String newUserId = created.path("userId");
+        String setupPath = created.path("initialPasswordPath");
+        org.junit.jupiter.api.Assertions.assertNotNull(setupPath);
+        consumeSetupLink(setupPath, "12345678");
 
         given()
                 .cookie("survey_admin_session", actorCookie)
@@ -49,7 +48,7 @@ class AccountAdminManagementTest {
                 .body("username", hasItem(actorUsername))
                 .body("$", hasSize(2));
 
-        String newAdminCookie = login(newUsername, "new-admin-password-123");
+        String newAdminCookie = login(newUsername, "12345678");
         given()
                 .cookie("survey_admin_session", newAdminCookie)
                 .get("/api/admin/accounts/" + accountId + "/surveys")
@@ -145,6 +144,15 @@ class AccountAdminManagementTest {
                 .cookie("survey_admin_session", cookieA)
                 .get("/api/admin/accounts/" + accountA + "/admins")
                 .then().statusCode(200);
+    }
+
+    private void consumeSetupLink(String setupPath, String password) {
+        String token = setupPath.substring(setupPath.indexOf("token=") + "token=".length());
+        given()
+                .contentType(ContentType.JSON)
+                .body("{\"token\":\"" + token + "\",\"password\":\"" + password + "\"}")
+                .post("/api/auth/password-token/consume")
+                .then().statusCode(204);
     }
 
     private String login(String username) {

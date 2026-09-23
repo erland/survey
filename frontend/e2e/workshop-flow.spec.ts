@@ -4,7 +4,7 @@ const surveyTitle = `E2E workshop ${Date.now()}`
 
 async function signIn(page: Page, username: string, password: string) {
   await page.goto('/admin')
-  await page.getByLabel('Användarnamn').fill(username)
+  await page.getByLabel('E-post eller systemadmin').fill(username)
   await page.getByLabel('Lösenord').fill(password)
   await page.getByRole('button', { name: 'Logga in' }).click()
 }
@@ -12,6 +12,17 @@ async function signIn(page: Page, username: string, password: string) {
 async function login(page: Page) {
   await signIn(page, 'admin', 'change-me')
   await expect(page.getByRole('heading', { name: 'Mina enkäter' })).toBeVisible()
+}
+
+async function setPasswordFromVisibleInvite(page: Page, password: string) {
+  const inviteUrl = await page.getByLabel('Länk').inputValue()
+  const setup = await page.context().newPage()
+  await setup.goto(inviteUrl)
+  await setup.getByLabel('Nytt lösenord').fill(password)
+  await setup.getByLabel('Upprepa lösenord').fill(password)
+  await setup.getByRole('button', { name: 'Sätt lösenord' }).click()
+  await expect(setup.getByRole('heading', { name: 'Lösenordet är sparat' })).toBeVisible()
+  await setup.close()
 }
 
 async function logout(page: Page) {
@@ -128,9 +139,9 @@ test('multi-user accounts stay isolated and administrators can manage membership
   const suffix = Date.now()
   const accountA = `E2E account A ${suffix}`
   const accountB = `E2E account B ${suffix}`
-  const adminA = `e2e-admin-a-${suffix}`
-  const adminB = `e2e-admin-b-${suffix}`
-  const sharedAdmin = `e2e-shared-${suffix}`
+  const adminA = `e2e-admin-a-${suffix}@example.test`
+  const adminB = `e2e-admin-b-${suffix}@example.test`
+  const sharedAdmin = `e2e-shared-${suffix}@example.test`
   const passwordA = 'e2e-password-a-123'
   const passwordB = 'e2e-password-b-123'
   const sharedPassword = 'e2e-shared-password-123'
@@ -146,10 +157,10 @@ test('multi-user accounts stay isolated and administrators can manage membership
     [accountB, adminB, passwordB],
   ] as const) {
     await page.getByLabel('Kontonamn').fill(accountName)
-    await page.getByLabel('Första administratör').fill(username)
-    await page.getByLabel('Initialt lösenord').fill(password)
+    await page.getByLabel('Första administratörens e-post').fill(username)
     await page.getByRole('button', { name: 'Skapa konto' }).click()
     await expect(page.getByText(accountName, { exact: true })).toBeVisible()
+    await setPasswordFromVisibleInvite(page, password)
   }
 
   await logout(page)
@@ -159,10 +170,10 @@ test('multi-user accounts stay isolated and administrators can manage membership
   await createSimpleSurvey(page, surveyA)
 
   await page.getByRole('button', { name: 'Administratörer' }).click()
-  await page.getByLabel('Användarnamn').fill(sharedAdmin)
-  await page.getByLabel('Initialt lösenord').fill(sharedPassword)
+  await page.getByLabel('E-postadress').fill(sharedAdmin)
   await page.getByRole('button', { name: 'Lägg till' }).click()
   await expect(page.locator('.admin-row').filter({ hasText: sharedAdmin })).toBeVisible()
+  await setPasswordFromVisibleInvite(page, sharedPassword)
 
   const sharedRow = page.locator('.admin-row').filter({ hasText: sharedAdmin })
   page.once('dialog', dialog => void dialog.accept())
@@ -174,7 +185,7 @@ test('multi-user accounts stay isolated and administrators can manage membership
   await adminARow.getByRole('button', { name: 'Ta bort' }).click()
   await expect(page.getByRole('alert')).toContainText('sista administratören')
 
-  await page.getByLabel('Användarnamn').fill(sharedAdmin)
+  await page.getByLabel('E-postadress').fill(sharedAdmin)
   await page.getByRole('button', { name: 'Lägg till' }).click()
   await expect(page.locator('.admin-row').filter({ hasText: sharedAdmin })).toBeVisible()
   await logout(page)
@@ -183,7 +194,7 @@ test('multi-user accounts stay isolated and administrators can manage membership
   await expect(page.locator('.account-name')).toHaveText(accountB)
   await createSimpleSurvey(page, surveyB)
   await page.getByRole('button', { name: 'Administratörer' }).click()
-  await page.getByLabel('Användarnamn').fill(sharedAdmin)
+  await page.getByLabel('E-postadress').fill(sharedAdmin)
   await page.getByRole('button', { name: 'Lägg till' }).click()
   await expect(page.locator('.admin-row').filter({ hasText: sharedAdmin })).toBeVisible()
   await logout(page)
@@ -203,4 +214,25 @@ test('multi-user accounts stay isolated and administrators can manage membership
   await expect(page.locator('.account-name')).toHaveText(accountB)
   await expect(page.locator('.survey-card').filter({ hasText: surveyB })).toBeVisible()
   await expect(page.locator('.survey-card').filter({ hasText: surveyA })).toHaveCount(0)
+
+  await logout(page)
+  await login(page)
+  await page.getByRole('button', { name: 'Systemadministration' }).click()
+  const sharedSystemRow = page.locator('.admin-row').filter({ hasText: sharedAdmin })
+  await sharedSystemRow.getByRole('button', { name: 'Skapa återställningslänk' }).click()
+  await expect(page.getByRole('heading', { name: `Återställ lösenord för ${sharedAdmin}` })).toBeVisible()
+  const resetPassword = 'e2e-reset-password-123'
+  await setPasswordFromVisibleInvite(page, resetPassword)
+
+  await logout(page)
+  await signIn(page, sharedAdmin, resetPassword)
+  await expect(page.getByRole('heading', { name: 'Välj enkätkonto' })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Ändra lösenord' }).click()
+  await expect(page.getByRole('heading', { name: 'Ändra lösenord' })).toBeVisible()
+  await page.getByLabel('Nuvarande lösenord').fill(resetPassword)
+  await page.getByLabel('Nytt lösenord', { exact: true }).fill('e2e-self-change-123')
+  await page.getByLabel('Upprepa nytt lösenord').fill('e2e-self-change-123')
+  await page.getByRole('button', { name: 'Ändra lösenord' }).click()
+  await expect(page.getByRole('status')).toContainText('Lösenordet är ändrat')
 })
